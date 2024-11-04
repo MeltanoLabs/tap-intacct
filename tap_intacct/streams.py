@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing as t
+from datetime import datetime
 from importlib import resources
 
 from singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -38,6 +39,7 @@ class IntacctStream(RESTStream):
         self.intacct_obj_name = intacct_obj_name
         self.replication_key = replication_key
         self.sage_client = sage_client
+        self.datetime_fields = [i for i, t in self.schema["properties"].items() if t.get("format") == "date-time"]
 
     # TODO refactor this out
     def get_records(
@@ -53,11 +55,13 @@ class IntacctStream(RESTStream):
         Args:
             context: Stream partition or context dictionary.
         """
-        yield from self.sage_client.get_by_date(
+        for record in self.sage_client.get_by_date(
             object_type=self.name,
             fields=list(self.schema["properties"]),
             from_date=self.get_starting_timestamp(context),
-        )
+        ):
+            yield self.post_process(record)
+
 
     @property
     def url_base(self) -> str:
@@ -146,6 +150,18 @@ class IntacctStream(RESTStream):
         # TODO: Parse response body and return a set of records.
         yield from extract_jsonpath(self.records_jsonpath, input=response.json())
 
+    def parse_datetime(self, date_str):
+        # Try to parse with the full format first
+        try:
+            return datetime.strptime(date_str, "%m/%d/%Y %H:%M:%S")
+        except ValueError:
+            # If it fails, try the date-only format
+            try:
+                return datetime.strptime(date_str, "%m/%d/%Y")
+            except ValueError:
+                # Handle cases where the format is still incorrect
+                raise ValueError(f"Invalid date format: {date_str}")
+
     def post_process(
         self,
         row: dict,
@@ -161,4 +177,7 @@ class IntacctStream(RESTStream):
             The updated record dictionary, or ``None`` to skip the record.
         """
         # TODO: Delete this method if not needed.
+        for field in self.datetime_fields:
+            if row[field] is not None:
+                row[field] = self.parse_datetime(row[field])
         return row
