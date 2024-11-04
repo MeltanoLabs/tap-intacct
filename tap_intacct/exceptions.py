@@ -1,6 +1,4 @@
-"""
-Sage Intacct SDK Exceptions
-"""
+"""Sage Intacct SDK Exceptions."""
 
 
 class SageIntacctSDKError(Exception):
@@ -50,3 +48,23 @@ class InvalidRequest(SageIntacctSDKError):
 
 class AuthFailure(SageIntacctSDKError):
     """The rest SageIntacctSDK errors, 500 error."""
+
+
+class InvalidXmlResponse(Exception):
+    pass
+
+
+class BadGatewayError(Exception):
+    pass
+
+
+class OfflineServiceError(Exception):
+    pass
+
+
+class RateLimitError(Exception):
+    pass
+
+
+class PleaseTryAgainLaterError(Exception):
+    pass

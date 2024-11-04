@@ -1,51 +1,57 @@
 """
 API Base class with util functions
 """
-import backoff
+
 import datetime as dt
 import json
+import logging
 import re
 import uuid
-from typing import Dict, List, Union
+from http.client import RemoteDisconnected
+from typing import Union
 from urllib.parse import unquote
 
+import backoff
 import requests
 import xmltodict
-from xml.parsers.expat import ExpatError
-
-from calendar import monthrange
-
-import logging
 
 from tap_intacct.exceptions import (
+    AuthFailure,
     ExpiredTokenError,
     InternalServerError,
+    InvalidRequest,
     InvalidTokenError,
     NoPrivilegeError,
     NotFoundItemError,
     SageIntacctSDKError,
     WrongParamsError,
-    InvalidRequest,
-    AuthFailure
 )
 
-from http.client import RemoteDisconnected
 
 class PleaseTryAgainLaterError(Exception):
     pass
+
 
 from .const import GET_BY_DATE_FIELD, INTACCT_OBJECTS, KEY_PROPERTIES, REP_KEYS
 
 logger = logging.getLogger(__name__)
 
+
 class InvalidXmlResponse(Exception):
     pass
+
+
 class BadGatewayError(Exception):
     pass
+
+
 class OfflineServiceError(Exception):
     pass
+
+
 class RateLimitError(Exception):
     pass
+
 
 def _format_date_for_intacct(datetime: dt.datetime) -> str:
     """
@@ -56,9 +62,11 @@ def _format_date_for_intacct(datetime: dt.datetime) -> str:
     Returns:
         'MM/DD/YY HH:MM:SS' formatted string.
     """
-    return datetime.strftime('%m/%d/%Y %H:%M:%S')
+    return datetime.strftime("%m/%d/%Y %H:%M:%S")
 
-IGNORE_FIELDS =["PASSWORD"]
+
+IGNORE_FIELDS = ["PASSWORD"]
+
 
 class SageIntacctSDK:
     """The base class for all API classes."""
@@ -71,7 +79,7 @@ class SageIntacctSDK:
         sender_password: str,
         user_id: str,
         user_password: str,
-        headers: Dict,
+        headers: dict,
     ):
         self.__api_url = api_url
         self.__company_id = company_id
@@ -103,27 +111,27 @@ class SageIntacctSDK:
 
         timestamp = dt.datetime.now()
         dict_body = {
-            'request': {
-                'control': {
-                    'senderid': self.__sender_id,
-                    'password': self.__sender_password,
-                    'controlid': timestamp,
-                    'uniqueid': False,
-                    'dtdversion': 3.0,
-                    'includewhitespace': False,
+            "request": {
+                "control": {
+                    "senderid": self.__sender_id,
+                    "password": self.__sender_password,
+                    "controlid": timestamp,
+                    "uniqueid": False,
+                    "dtdversion": 3.0,
+                    "includewhitespace": False,
                 },
-                'operation': {
-                    'authentication': {
-                        'login': {
-                            'userid': user_id,
-                            'companyid': company_id,
-                            'password': user_password,
+                "operation": {
+                    "authentication": {
+                        "login": {
+                            "userid": user_id,
+                            "companyid": company_id,
+                            "password": user_password,
                         }
                     },
-                    'content': {
-                        'function': {
-                            '@controlid': str(uuid.uuid4()),
-                            'getAPISession': None,
+                    "content": {
+                        "function": {
+                            "@controlid": str(uuid.uuid4()),
+                            "getAPISession": None,
                         }
                     },
                 },
@@ -132,13 +140,13 @@ class SageIntacctSDK:
 
         response = self._post_request(dict_body, self.__api_url)
 
-        if response['authentication']['status'] == 'success':
-            session_details = response['result']['data']['api']
-            self.__api_url = session_details['endpoint']
-            self.__session_id = session_details['sessionid']
+        if response["authentication"]["status"] == "success":
+            session_details = response["result"]["data"]["api"]
+            self.__api_url = session_details["endpoint"]
+            self.__session_id = session_details["sessionid"]
 
         else:
-            raise SageIntacctSDKError('Error: {0}'.format(response['errormessage']))
+            raise SageIntacctSDKError("Error: {0}".format(response["errormessage"]))
 
     @backoff.on_exception(
         backoff.expo,
@@ -156,7 +164,7 @@ class SageIntacctSDK:
         factor=3,
     )
     # @singer.utils.ratelimit(10, 1)
-    def _post_request(self, dict_body: dict, api_url: str) -> Dict:
+    def _post_request(self, dict_body: dict, api_url: str) -> dict:
         """
         Create a HTTP post request.
 
@@ -168,7 +176,7 @@ class SageIntacctSDK:
             A response from the request (dict).
         """
 
-        api_headers = {'content-type': 'application/xml'}
+        api_headers = {"content-type": "application/xml"}
         api_headers.update(self.__headers)
         body = xmltodict.unparse(dict_body)
         logger.info(f"request to {api_url} with body {body}")
@@ -198,34 +206,41 @@ class SageIntacctSDK:
             )
 
         if response.status_code == 200:
-            if parsed_response['response']['control']['status'] == 'success':
-                api_response = parsed_response['response']['operation']
+            if parsed_response["response"]["control"]["status"] == "success":
+                api_response = parsed_response["response"]["operation"]
 
-            if parsed_response['response']['control']['status'] == 'failure':
+            if parsed_response["response"]["control"]["status"] == "failure":
                 exception_msg = self.decode_support_id(
-                    parsed_response['response']['errormessage']
+                    parsed_response["response"]["errormessage"]
                 )
                 raise WrongParamsError(
-                    'Some of the parameters are wrong', exception_msg
+                    "Some of the parameters are wrong", exception_msg
                 )
 
-            if api_response['authentication']['status'] == 'failure':
+            if api_response["authentication"]["status"] == "failure":
                 raise InvalidTokenError(
-                    'Invalid token / Incorrect credentials',
-                    api_response['errormessage'],
+                    "Invalid token / Incorrect credentials",
+                    api_response["errormessage"],
                 )
 
-            if api_response['result']['status'] == 'success':
+            if api_response["result"]["status"] == "success":
                 return api_response
-            
+
             logger.error(f"Intacct error response: {api_response}")
-            error = api_response.get('result', {}).get('errormessage', {}).get('error', {})
-            desc_2 = error.get("description2") if isinstance(error, dict) else error[0].get("description2") if isinstance(error, list) and error else ""
+            error = (
+                api_response.get("result", {}).get("errormessage", {}).get("error", {})
+            )
+            desc_2 = (
+                error.get("description2")
+                if isinstance(error, dict)
+                else error[0].get("description2")
+                if isinstance(error, list) and error
+                else ""
+            )
             if (
-                api_response['result']['status'] == 'failure'
+                api_response["result"]["status"] == "failure"
                 and error
-                and "There was an error processing the request"
-                in desc_2
+                and "There was an error processing the request" in desc_2
                 and dict_body["request"]["operation"]["content"]["function"]["query"][
                     "object"
                 ]
@@ -233,39 +248,49 @@ class SageIntacctSDK:
             ):
                 return {"result": "skip_and_paginate"}
 
-        exception_msg = parsed_response.get("response", {}).get("errormessage", {}).get("error", {})
+        exception_msg = (
+            parsed_response.get("response", {}).get("errormessage", {}).get("error", {})
+        )
         correction = exception_msg.get("correction", {})
-        
+
         if response.status_code == 400:
             if exception_msg.get("errorno") == "GW-0011":
-                raise AuthFailure(f'One or more authentication values are incorrect. Response:{parsed_response}')
-            raise InvalidRequest("Invalid request", parsed_response)            
+                raise AuthFailure(
+                    f"One or more authentication values are incorrect. Response:{parsed_response}"
+                )
+            raise InvalidRequest("Invalid request", parsed_response)
 
         if response.status_code == 401:
             raise InvalidTokenError(
-                f'Invalid token / Incorrect credentials. Response: {parsed_response}'
+                f"Invalid token / Incorrect credentials. Response: {parsed_response}"
             )
 
         if response.status_code == 403:
             raise NoPrivilegeError(
-                f'Forbidden, the user has insufficient privilege. Response: {parsed_response}'
+                f"Forbidden, the user has insufficient privilege. Response: {parsed_response}"
             )
 
         if response.status_code == 404:
-            raise NotFoundItemError(f'Not found item with ID. Response: {parsed_response}')
+            raise NotFoundItemError(
+                f"Not found item with ID. Response: {parsed_response}"
+            )
 
         if response.status_code == 498:
-            raise ExpiredTokenError(f'Expired token, try to refresh it. Response: {parsed_response}')
+            raise ExpiredTokenError(
+                f"Expired token, try to refresh it. Response: {parsed_response}"
+            )
 
         if response.status_code == 500:
-            raise InternalServerError(f'Internal server error. Response: {parsed_response}')
+            raise InternalServerError(
+                f"Internal server error. Response: {parsed_response}"
+            )
 
-        if correction and 'Please Try Again Later' in correction:
+        if correction and "Please Try Again Later" in correction:
             raise PleaseTryAgainLaterError(parsed_response)
 
-        raise SageIntacctSDKError('Error: {0}'.format(parsed_response))
+        raise SageIntacctSDKError("Error: {0}".format(parsed_response))
 
-    def support_id_msg(self, errormessages) -> Union[List, Dict]:
+    def support_id_msg(self, errormessages) -> Union[list, dict]:
         """
         Finds whether the error messages is list / dict and assign type and error assignment.
 
@@ -276,16 +301,16 @@ class SageIntacctSDK:
             Error message assignment and type.
         """
         error = {}
-        if isinstance(errormessages['error'], list):
-            error['error'] = errormessages['error'][0]
-            error['type'] = 'list'
-        elif isinstance(errormessages['error'], dict):
-            error['error'] = errormessages['error']
-            error['type'] = 'dict'
+        if isinstance(errormessages["error"], list):
+            error["error"] = errormessages["error"][0]
+            error["type"] = "list"
+        elif isinstance(errormessages["error"], dict):
+            error["error"] = errormessages["error"]
+            error["type"] = "dict"
 
         return error
 
-    def decode_support_id(self, errormessages: Union[List, Dict]) -> Union[List, Dict]:
+    def decode_support_id(self, errormessages: Union[list, dict]) -> Union[list, dict]:
         """
         Decodes Support ID.
 
@@ -296,23 +321,23 @@ class SageIntacctSDK:
             Same error message with decoded Support ID.
         """
         support_id_msg = self.support_id_msg(errormessages)
-        data_type = support_id_msg['type']
-        error = support_id_msg['error']
-        if error and error['description2']:
-            message = error['description2']
-            support_id = re.search('Support ID: (.*)]', message)
+        data_type = support_id_msg["type"]
+        error = support_id_msg["error"]
+        if error and error["description2"]:
+            message = error["description2"]
+            support_id = re.search("Support ID: (.*)]", message)
             if support_id and support_id.group(1):
                 decoded_support_id = unquote(support_id.group(1))
                 message = message.replace(support_id.group(1), decoded_support_id)
 
-        if data_type == 'list':
-            errormessages['error'][0]['description2'] = message if message else None
-        elif data_type == 'dict':
-            errormessages['error']['description2'] = message if message else None
+        if data_type == "list":
+            errormessages["error"][0]["description2"] = message if message else None
+        elif data_type == "dict":
+            errormessages["error"]["description2"] = message if message else None
 
         return errormessages
 
-    def format_and_send_request(self, data: Dict) -> Union[List, Dict]:
+    def format_and_send_request(self, data: dict) -> Union[list, dict]:
         """
         Format data accordingly to convert them to xml.
 
@@ -324,46 +349,45 @@ class SageIntacctSDK:
         """
 
         key = next(iter(data))
-        object_type = data[key]['object']
+        object_type = data[key]["object"]
         timestamp = dt.datetime.now()
 
         dict_body = {
-            'request': {
-                'control': {
-                    'senderid': self.__sender_id,
-                    'password': self.__sender_password,
-                    'controlid': timestamp,
-                    'uniqueid': False,
-                    'dtdversion': 3.0,
-                    'includewhitespace': False,
+            "request": {
+                "control": {
+                    "senderid": self.__sender_id,
+                    "password": self.__sender_password,
+                    "controlid": timestamp,
+                    "uniqueid": False,
+                    "dtdversion": 3.0,
+                    "includewhitespace": False,
                 },
-                'operation': {
-                    'authentication': {'sessionid': self.__session_id},
-                    'content': {
-                        'function': {'@controlid': str(uuid.uuid4()), key: data[key]}
+                "operation": {
+                    "authentication": {"sessionid": self.__session_id},
+                    "content": {
+                        "function": {"@controlid": str(uuid.uuid4()), key: data[key]}
                     },
                 },
             }
         }
         # with singer.metrics.http_request_timer(endpoint=object_type):
         response = self._post_request(dict_body, self.__api_url)
-        return response['result']
-
+        return response["result"]
 
     def get_by_date(
-        self, *, object_type: str, fields: List[str], from_date: dt.datetime
-    ) -> List[Dict]:
+        self, *, object_type: str, fields: list[str], from_date: dt.datetime
+    ) -> list[dict]:
         """
         Get multiple objects of a single type from Sage Intacct, filtered by GET_BY_DATE_FIELD (WHENMODIFIED) date.
 
         Returns:
-            List of Dict in object_type schema.
+            List of dict in object_type schema.
         """
         # if stream is an audit_history stream filter by object type
         if object_type.startswith("audit_history"):
             filter_table = object_type.split("audit_history_")[-1]
             filter_table_value = INTACCT_OBJECTS[filter_table].lower()
-            object_type = "audit_history"   
+            object_type = "audit_history"
 
         intacct_object_type = INTACCT_OBJECTS[object_type]
         pk = KEY_PROPERTIES[object_type][0]
@@ -374,26 +398,26 @@ class SageIntacctSDK:
         # if it's an audit_history stream filter only created (C) and deleted (D) records
         if object_type == "audit_history":
             filter = {
-                "and":{
-                    'greaterthanorequalto': {
-                        'field': rep_key,
-                        'value': _format_date_for_intacct(from_date),
+                "and": {
+                    "greaterthanorequalto": {
+                        "field": rep_key,
+                        "value": _format_date_for_intacct(from_date),
                     },
-                    "equalto":{
-                        'field': "OBJECTTYPE",
-                        'value': filter_table_value,
+                    "equalto": {
+                        "field": "OBJECTTYPE",
+                        "value": filter_table_value,
                     },
-                    "in":{
-                        'field': "ACCESSMODE",
-                        'value': ["C", "D"],
-                    }
+                    "in": {
+                        "field": "ACCESSMODE",
+                        "value": ["C", "D"],
+                    },
                 }
             }
         else:
             filter = {
-                'greaterthanorequalto': {
-                    'field': rep_key,
-                    'value': _format_date_for_intacct(from_date),
+                "greaterthanorequalto": {
+                    "field": rep_key,
+                    "value": _format_date_for_intacct(from_date),
                 }
             }
             orderby = {
@@ -404,39 +428,40 @@ class SageIntacctSDK:
             }
 
         get_count = {
-            'query': {
-                'object': intacct_object_type,
-                'select': {'field': pk},
-                'filter': filter,
-                'pagesize': '1',
-                'options': {'showprivate': 'true'},
+            "query": {
+                "object": intacct_object_type,
+                "select": {"field": pk},
+                "filter": filter,
+                "pagesize": "1",
+                "options": {"showprivate": "true"},
             }
         }
         response = self.format_and_send_request(get_count)
-        count = int(response['data']['@totalcount'])
+        count = int(response["data"]["@totalcount"])
         pagesize = 1000
         offset = 0
         while offset < count:
             data = {
-                'query': {
-                    'object': intacct_object_type,
-                    'select': {'field': fields},
-                    'options': {'showprivate': 'true'},
-                    'filter': filter,
-                    'pagesize': pagesize,
-                    'offset': offset,
-                    'orderby': orderby,
+                "query": {
+                    "object": intacct_object_type,
+                    "select": {"field": fields},
+                    "options": {"showprivate": "true"},
+                    "filter": filter,
+                    "pagesize": pagesize,
+                    "offset": offset,
+                    "orderby": orderby,
                 }
             }
             intacct_objects = self.format_and_send_request(data)
 
-            if intacct_objects == "skip_and_paginate" and object_type == "audit_history":
+            if (
+                intacct_objects == "skip_and_paginate"
+                and object_type == "audit_history"
+            ):
                 offset = offset + 99
                 continue
 
-            intacct_objects = intacct_objects['data'][
-                intacct_object_type
-            ]
+            intacct_objects = intacct_objects["data"][intacct_object_type]
             # TODO: Can we use intacct_objects['data']["@numremaining"] for paginating?
             # It seems like it might be inconsistent.
 
@@ -449,26 +474,20 @@ class SageIntacctSDK:
 
             offset = offset + pagesize
 
-
     def get_fields_data_using_schema_name(self, object_type: str):
         """
         Function to fetch fields data for a given object by taking the schema name through
         the API call.This function helps query via the api for any given schema name
         Returns:
-            List of Dict in object_type schema.
+            List of dict in object_type schema.
         """
         intacct_object_type = INTACCT_OBJECTS[object_type]
 
         # First get the count of object that will be synchronized.
-        get_fields = {
-            'lookup': {
-                'object': intacct_object_type
-            }
-        }
+        get_fields = {"lookup": {"object": intacct_object_type}}
 
         response = self.format_and_send_request(get_fields)
         return response
-
 
     def load_schema_from_api(self, stream: str):
         """
@@ -482,32 +501,35 @@ class SageIntacctSDK:
 
         """
         schema_dict = {}
-        schema_dict['type'] = 'object'
-        schema_dict['properties'] = {}
+        schema_dict["type"] = "object"
+        schema_dict["properties"] = {}
 
         required_list = ["RECORDNO", "WHENMODIFIED"]
-        fields_data_response = self.get_fields_data_using_schema_name(object_type=stream)
-        fields_data_list = fields_data_response['data']['Type']['Fields']['Field']
+        fields_data_response = self.get_fields_data_using_schema_name(
+            object_type=stream
+        )
+        fields_data_list = fields_data_response["data"]["Type"]["Fields"]["Field"]
         for rec in fields_data_list:
-            if rec['ID'] in IGNORE_FIELDS:
+            if rec["ID"] in IGNORE_FIELDS:
                 continue
-            if rec['DATATYPE'] in ['PERCENT', 'DECIMAL']:
-                type_data_type = 'number'
-            elif rec['DATATYPE'] == 'BOOLEAN':
-                type_data_type = 'boolean'
-            elif rec['DATATYPE'] in ['DATE', 'TIMESTAMP']:
-                type_data_type = 'date-time'
+            if rec["DATATYPE"] in ["PERCENT", "DECIMAL"]:
+                type_data_type = "number"
+            elif rec["DATATYPE"] == "BOOLEAN":
+                type_data_type = "boolean"
+            elif rec["DATATYPE"] in ["DATE", "TIMESTAMP"]:
+                type_data_type = "date-time"
             else:
-                type_data_type = 'string'
-            if type_data_type in ['string', 'boolean', 'number']:
-                format_dict = {'type': ["null", type_data_type]}
+                type_data_type = "string"
+            if type_data_type in ["string", "boolean", "number"]:
+                format_dict = {"type": ["null", type_data_type]}
             else:
-                if type_data_type in ['date', 'date-time']:
-                    format_dict = {'type': ["null", 'string'], 'format': type_data_type}
+                if type_data_type in ["date", "date-time"]:
+                    format_dict = {"type": ["null", "string"], "format": type_data_type}
 
-            schema_dict['properties'][rec['ID']] = format_dict
-        schema_dict['required'] = required_list
+            schema_dict["properties"][rec["ID"]] = format_dict
+        schema_dict["required"] = required_list
         return schema_dict
+
 
 def get_client(
     *,
@@ -517,7 +539,7 @@ def get_client(
     sender_password: str,
     user_id: str,
     user_password: str,
-    headers: Dict,
+    headers: dict,
 ) -> SageIntacctSDK:
     """
     Initializes and returns a SageIntacctSDK object.

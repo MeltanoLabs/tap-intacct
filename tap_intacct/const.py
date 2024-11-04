@@ -1,36 +1,36 @@
 REQUIRED_CONFIG_KEYS = [
-    'company_id',
-    'sender_id',
-    'sender_password',
-    'user_id',
-    'user_password',
+    "company_id",
+    "sender_id",
+    "sender_password",
+    "user_id",
+    "user_password",
 ]
 
 KEY_PROPERTIES = {
-    'accounts_payable_bills': ["RECORDNO"],
-    'accounts_payable_payments': ["RECORDNO"],
-    'accounts_payable_vendors': ["VENDORID"],
+    "accounts_payable_bills": ["RECORDNO"],
+    "accounts_payable_payments": ["RECORDNO"],
+    "accounts_payable_vendors": ["VENDORID"],
     "accounts_payable_bank_accounts": ["RECORDNO"],
     "checking_accounts": ["RECORDNO"],
     "savings_accounts": ["RECORDNO"],
     "card_accounts": ["RECORDNO"],
     "classes": ["RECORDNO"],
     "tasks": ["RECORDNO"],
-    'general_ledger_accounts': ['RECORDNO'],
-    'general_ledger_details': ["RECORDNO"],
-    'general_ledger_journal_entries': ["RECORDNO"],
-    'general_ledger_journal_entry_lines': ["RECORDNO"],
-    'projects': ["RECORDNO"],
-    'invoices': ["RECORDNO"],
-    'adjustments': ["RECORDNO"],
-    'customers': ["RECORDNO"],
-    'deposits': ["RECORDNO"],
-    'items': ["RECORDNO"],
-    'invoice_items': ["RECORDNO"],
-    'adjustment_items': ["RECORDNO"],
-    'departments': ["DEPARTMENTID"],
-    'audit_history': ["ID"],
-    'locations': ["RECORDNO"],
+    "general_ledger_accounts": ["RECORDNO"],
+    "general_ledger_details": ["RECORDNO"],
+    "general_ledger_journal_entries": ["RECORDNO"],
+    "general_ledger_journal_entry_lines": ["RECORDNO"],
+    "projects": ["RECORDNO"],
+    "invoices": ["RECORDNO"],
+    "adjustments": ["RECORDNO"],
+    "customers": ["RECORDNO"],
+    "deposits": ["RECORDNO"],
+    "items": ["RECORDNO"],
+    "invoice_items": ["RECORDNO"],
+    "adjustment_items": ["RECORDNO"],
+    "departments": ["DEPARTMENTID"],
+    "audit_history": ["ID"],
+    "locations": ["RECORDNO"],
 }
 
 # List of available objects with their internal object-reference/endpoint name.
@@ -61,14 +61,11 @@ INTACCT_OBJECTS = {
     "locations": "LOCATION"
 }
 
-REP_KEYS = {
-    "audit_history" : "ACCESSTIME"
-}
+REP_KEYS = {"audit_history": "ACCESSTIME"}
 
-IGNORE_FIELDS =["PASSWORD"]
-
+IGNORE_FIELDS = ["PASSWORD"]
 
 
 GET_BY_DATE_FIELD = "WHENMODIFIED"
 
-DEFAULT_API_URL = 'https://api.intacct.com/ia/xml/xmlgw.phtml'
+DEFAULT_API_URL = "https://api.intacct.com/ia/xml/xmlgw.phtml"

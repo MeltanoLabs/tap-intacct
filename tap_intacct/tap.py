@@ -6,8 +6,9 @@ from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
 
 from tap_intacct import streams
-from tap_intacct.sage import get_client
 from tap_intacct.const import INTACCT_OBJECTS
+from tap_intacct.sage import get_client
+
 
 class TapIntacct(Tap):
     """Intacct tap class."""
@@ -54,10 +55,6 @@ class TapIntacct(Tap):
             description="The earliest record date to sync",
         ),
     ).to_dict()
-
-    def _get_stream_schema(self):
-        """Return the schema for the stream."""
-        return streams.SageStream.schema
 
     def discover_streams(self) -> list[streams.TableStream]:
         """Return a list of discovered streams.
