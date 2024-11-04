@@ -54,16 +54,15 @@ class IntacctStream(RESTStream):
             context: Stream partition or context dictionary.
         """
         yield from self.sage_client.get_by_date(
-            object_type=self.intacct_obj_name,
-            fields=[],
-            from_date=self.get_starting_replication_key_value(context),
+            object_type=self.name,
+            fields=list(self.schema["properties"]),
+            from_date=self.get_starting_timestamp(context),
         )
 
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
-        # TODO: hardcode a value here, or retrieve it from self.config
-        return "https://api.mysample.com"
+        return self.config["api_url"]
 
     @property
     def http_headers(self) -> dict:
@@ -109,11 +108,11 @@ class IntacctStream(RESTStream):
             A dictionary of URL query parameters.
         """
         params: dict = {}
-        if next_page_token:
-            params["page"] = next_page_token
-        if self.replication_key:
-            params["sort"] = "asc"
-            params["order_by"] = self.replication_key
+        # if next_page_token:
+        #     params["page"] = next_page_token
+        # if self.replication_key:
+        #     params["sort"] = "asc"
+        #     params["order_by"] = self.replication_key
         return params
 
     def prepare_request_payload(

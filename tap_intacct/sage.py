@@ -366,7 +366,6 @@ class SageIntacctSDK:
             object_type = "audit_history"   
 
         intacct_object_type = INTACCT_OBJECTS[object_type]
-        total_intacct_objects = []
         pk = KEY_PROPERTIES[object_type][0]
         rep_key = REP_KEYS.get(object_type, GET_BY_DATE_FIELD)
 
@@ -397,6 +396,12 @@ class SageIntacctSDK:
                     'value': _format_date_for_intacct(from_date),
                 }
             }
+            orderby = {
+                "order": {
+                    "field": rep_key,
+                    "ascending": {},
+                }
+            }
 
         get_count = {
             'query': {
@@ -420,6 +425,7 @@ class SageIntacctSDK:
                     'filter': filter,
                     'pagesize': pagesize,
                     'offset': offset,
+                    'orderby': orderby,
                 }
             }
             intacct_objects = self.format_and_send_request(data)
@@ -431,6 +437,9 @@ class SageIntacctSDK:
             intacct_objects = intacct_objects['data'][
                 intacct_object_type
             ]
+            # TODO: Can we use intacct_objects['data']["@numremaining"] for paginating?
+            # It seems like it might be inconsistent.
+
             # When only 1 object is found, Intacct returns a dict, otherwise it returns a list of dicts.
             if isinstance(intacct_objects, dict):
                 intacct_objects = [intacct_objects]
@@ -440,22 +449,6 @@ class SageIntacctSDK:
 
             offset = offset + pagesize
 
-    def get_sample(self, intacct_object: str):
-        """
-        Get a sample of data from an endpoint, useful for determining schemas.
-        Returns:
-            List of Dict in objects schema.
-        """
-        data = {
-            'readByQuery': {
-                'object': intacct_object.upper(),
-                'fields': '*',
-                'query': None,
-                'pagesize': '10',
-            }
-        }
-
-        return self.format_and_send_request(data)['data'][intacct_object.lower()]
 
     def get_fields_data_using_schema_name(self, object_type: str):
         """
