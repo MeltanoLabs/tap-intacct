@@ -90,7 +90,7 @@ class IntacctStream(RESTStream):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.primary_key = KEY_PROPERTIES[self.name]
+        self.primary_keys = KEY_PROPERTIES[self.name]
         self.intacct_obj_name = intacct_obj_name
         self.replication_key = replication_key
         self.session_id = self._get_session_id()
