@@ -5,11 +5,9 @@ API Base class with util functions
 import datetime as dt
 import json
 import logging
-import re
 import uuid
 from http.client import RemoteDisconnected
 from typing import Union
-from urllib.parse import unquote
 
 import backoff
 import requests
@@ -277,53 +275,6 @@ class SageIntacctSDK:
             raise PleaseTryAgainLaterError(parsed_response)
 
         raise SageIntacctSDKError("Error: {0}".format(parsed_response))
-
-    def support_id_msg(self, errormessages) -> Union[list, dict]:
-        """
-        Finds whether the error messages is list / dict and assign type and error assignment.
-
-        Parameters:
-            errormessages (dict / list): error message received from Sage Intacct.
-
-        Returns:
-            Error message assignment and type.
-        """
-        error = {}
-        if isinstance(errormessages["error"], list):
-            error["error"] = errormessages["error"][0]
-            error["type"] = "list"
-        elif isinstance(errormessages["error"], dict):
-            error["error"] = errormessages["error"]
-            error["type"] = "dict"
-
-        return error
-
-    def decode_support_id(self, errormessages: Union[list, dict]) -> Union[list, dict]:
-        """
-        Decodes Support ID.
-
-        Parameters:
-            errormessages (dict / list): error message received from Sage Intacct.
-
-        Returns:
-            Same error message with decoded Support ID.
-        """
-        support_id_msg = self.support_id_msg(errormessages)
-        data_type = support_id_msg["type"]
-        error = support_id_msg["error"]
-        if error and error["description2"]:
-            message = error["description2"]
-            support_id = re.search("Support ID: (.*)]", message)
-            if support_id and support_id.group(1):
-                decoded_support_id = unquote(support_id.group(1))
-                message = message.replace(support_id.group(1), decoded_support_id)
-
-        if data_type == "list":
-            errormessages["error"][0]["description2"] = message if message else None
-        elif data_type == "dict":
-            errormessages["error"]["description2"] = message if message else None
-
-        return errormessages
 
     def format_and_send_request(self, data: dict) -> Union[list, dict]:
         """

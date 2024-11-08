@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 import typing as t
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import unquote
 
 import xmltodict
 from singer_sdk import typing as th  # JSON schema typing helpers
@@ -224,6 +226,35 @@ class IntacctStream(RESTStream):
         }
         return xmltodict.unparse(dict_body)
 
+    def _support_id_msg(self, errormessages: list | dict) -> list | dict:
+        error = {}
+        if isinstance(errormessages["error"], list):
+            error["error"] = errormessages["error"][0]
+            error["type"] = "list"
+        elif isinstance(errormessages["error"], dict):
+            error["error"] = errormessages["error"]
+            error["type"] = "dict"
+
+        return error
+
+    def _decode_support_id(self, errormessages: list | dict) -> list | dict:
+        support_id_msg = self._support_id_msg(errormessages)
+        data_type = support_id_msg["type"]
+        error = support_id_msg["error"]
+        if error and error["description2"]:
+            message = error["description2"]
+            support_id = re.search("Support ID: (.*)]", message)
+            if support_id and support_id.group(1):
+                decoded_support_id = unquote(support_id.group(1))
+                message = message.replace(support_id.group(1), decoded_support_id)
+
+        if data_type == "list":
+            errormessages["error"][0]["description2"] = message if message else None
+        elif data_type == "dict":
+            errormessages["error"]["description2"] = message if message else None
+
+        return errormessages
+
     def parse_response(self, response: requests.Response) -> t.Iterable[dict]:
         """Parse the response and return an iterator of result records.
 
@@ -258,7 +289,7 @@ class IntacctStream(RESTStream):
                 api_response = parsed_response["response"]["operation"]
 
             if parsed_response["response"]["control"]["status"] == "failure":
-                exception_msg = self.sage_client.decode_support_id(
+                exception_msg = self._decode_support_id(
                     parsed_response["response"]["errormessage"]
                 )
                 raise WrongParamsError(
