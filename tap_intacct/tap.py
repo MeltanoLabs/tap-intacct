@@ -80,7 +80,6 @@ class TapIntacct(Tap):
                 schema=schema,
                 intacct_obj_name=INTACCT_OBJECTS[stream_name],
                 replication_key="WHENMODIFIED",
-                sage_client=sage_client,
             )
             discovered_streams.append(stream)
             # audit_stream = streams.SageStream(
