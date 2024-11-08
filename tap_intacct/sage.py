@@ -53,18 +53,6 @@ class RateLimitError(Exception):
     pass
 
 
-def _format_date_for_intacct(datetime: dt.datetime) -> str:
-    """
-    Intacct expects datetimes in a 'MM/DD/YY HH:MM:SS' string format.
-    Args:
-        datetime: The datetime to be converted.
-
-    Returns:
-        'MM/DD/YY HH:MM:SS' formatted string.
-    """
-    return datetime.strftime("%m/%d/%Y %H:%M:%S")
-
-
 IGNORE_FIELDS = ["PASSWORD"]
 
 
@@ -373,106 +361,6 @@ class SageIntacctSDK:
         # with singer.metrics.http_request_timer(endpoint=object_type):
         response = self._post_request(dict_body, self.__api_url)
         return response["result"]
-
-    def get_by_date(
-        self, *, object_type: str, fields: list[str], from_date: dt.datetime
-    ) -> list[dict]:
-        """
-        Get multiple objects of a single type from Sage Intacct, filtered by GET_BY_DATE_FIELD (WHENMODIFIED) date.
-
-        Returns:
-            List of dict in object_type schema.
-        """
-        # if stream is an audit_history stream filter by object type
-        if object_type.startswith("audit_history"):
-            filter_table = object_type.split("audit_history_")[-1]
-            filter_table_value = INTACCT_OBJECTS[filter_table].lower()
-            object_type = "audit_history"
-
-        intacct_object_type = INTACCT_OBJECTS[object_type]
-        pk = KEY_PROPERTIES[object_type][0]
-        rep_key = REP_KEYS.get(object_type, GET_BY_DATE_FIELD)
-
-        # Unsafe
-        # from_date = from_date + dt.timedelta(seconds=1)
-        # if it's an audit_history stream filter only created (C) and deleted (D) records
-        if object_type == "audit_history":
-            filter = {
-                "and": {
-                    "greaterthanorequalto": {
-                        "field": rep_key,
-                        "value": _format_date_for_intacct(from_date),
-                    },
-                    "equalto": {
-                        "field": "OBJECTTYPE",
-                        "value": filter_table_value,
-                    },
-                    "in": {
-                        "field": "ACCESSMODE",
-                        "value": ["C", "D"],
-                    },
-                }
-            }
-        else:
-            filter = {
-                "greaterthanorequalto": {
-                    "field": rep_key,
-                    "value": _format_date_for_intacct(from_date),
-                }
-            }
-            orderby = {
-                "order": {
-                    "field": rep_key,
-                    "ascending": {},
-                }
-            }
-
-        get_count = {
-            "query": {
-                "object": intacct_object_type,
-                "select": {"field": pk},
-                "filter": filter,
-                "pagesize": "1",
-                "options": {"showprivate": "true"},
-            }
-        }
-        response = self.format_and_send_request(get_count)
-        count = int(response["data"]["@totalcount"])
-        pagesize = 1000
-        offset = 0
-        while offset < count:
-            data = {
-                "query": {
-                    "object": intacct_object_type,
-                    "select": {"field": fields},
-                    "options": {"showprivate": "true"},
-                    "filter": filter,
-                    "pagesize": pagesize,
-                    "offset": offset,
-                    "orderby": orderby,
-                }
-            }
-            intacct_objects = self.format_and_send_request(data)
-
-            if (
-                intacct_objects == "skip_and_paginate"
-                and object_type == "audit_history"
-            ):
-                offset = offset + 99
-                continue
-
-            intacct_objects = intacct_objects["data"][intacct_object_type]
-            # TODO: Can we use intacct_objects['data']["@numremaining"] for paginating?
-            # It seems like it might be inconsistent.
-
-            # When only 1 object is found, Intacct returns a dict, otherwise it returns a list of dicts.
-            if isinstance(intacct_objects, dict):
-                intacct_objects = [intacct_objects]
-
-            for record in intacct_objects:
-                yield record
-
-            offset = offset + pagesize
 
     def get_fields_data_using_schema_name(self, object_type: str):
         """
