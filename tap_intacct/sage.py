@@ -5,6 +5,7 @@ API Base class with util functions
 import datetime as dt
 import json
 import logging
+import re
 import uuid
 from http.client import RemoteDisconnected
 from typing import Union
@@ -167,7 +168,17 @@ class SageIntacctSDK:
         api_headers = {"content-type": "application/xml"}
         api_headers.update(self.__headers)
         body = xmltodict.unparse(dict_body)
-        logger.info(f"request to {api_url} with body {body}")
+        patterns = [
+            (r"<senderid>[^<]+</senderid>", "<senderid>[REDACTED]</senderid>"),
+            (r"<password>[^<]+</password>", "<password>[REDACTED]</password>"),
+            (r"<sessionid>[^<]+</sessionid>", "<sessionid>[REDACTED]</sessionid>"),
+        ]
+
+        # Apply each replacement pattern
+        redacted_body = body
+        for pattern, replacement in patterns:
+            redacted_body = re.sub(pattern, replacement, redacted_body)
+        logger.info(f"request to {api_url} with body {redacted_body}")
         response = requests.post(api_url, headers=api_headers, data=body)
 
         logger.info(
