@@ -318,7 +318,9 @@ class IntacctStream(RESTStream):
         }
         return xmltodict.unparse(dict_body)
 
-    def _support_id_msg(self, errormessages: list | dict) -> list | dict:
+    @staticmethod
+    def support_id_msg(errormessages: list | dict) -> list | dict:
+        """Get the support ID message from the error message."""
         error = {}
         if isinstance(errormessages["error"], list):
             error["error"] = errormessages["error"][0]
@@ -329,8 +331,10 @@ class IntacctStream(RESTStream):
 
         return error
 
-    def _decode_support_id(self, errormessages: list | dict) -> list | dict:
-        support_id_msg = self._support_id_msg(errormessages)
+    @staticmethod
+    def decode_support_id(errormessages: list | dict) -> list | dict:
+        """Decode the support ID from the error message."""
+        support_id_msg = IntacctStream.support_id_msg(errormessages)
         data_type = support_id_msg["type"]
         error = support_id_msg["error"]
         if error and error["description2"]:
@@ -381,7 +385,7 @@ class IntacctStream(RESTStream):
                 api_response = parsed_response["response"]["operation"]
 
             if parsed_response["response"]["control"]["status"] == "failure":
-                exception_msg = self._decode_support_id(
+                exception_msg = self.decode_support_id(
                     parsed_response["response"]["errormessage"]
                 )
                 raise WrongParamsError(

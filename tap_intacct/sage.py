@@ -25,6 +25,7 @@ from tap_intacct.exceptions import (
     SageIntacctSDKError,
     WrongParamsError,
 )
+from tap_intacct.streams import IntacctStream
 
 
 class PleaseTryAgainLaterError(Exception):
@@ -197,7 +198,7 @@ class SageIntacctSDK:
                 api_response = parsed_response["response"]["operation"]
 
             if parsed_response["response"]["control"]["status"] == "failure":
-                exception_msg = self.decode_support_id(
+                exception_msg = IntacctStream.decode_support_id(
                     parsed_response["response"]["errormessage"]
                 )
                 raise WrongParamsError(
