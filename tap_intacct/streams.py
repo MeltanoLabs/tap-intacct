@@ -65,7 +65,7 @@ class IntacctStream(RESTStream):
         self.datetime_fields = [
             i
             for i, t in self.schema["properties"].items()
-            if t.get("format") == "date-time"
+            if t.get("format", "") == "date-time"
         ]
 
     def _get_session_id(self) -> str:
@@ -354,7 +354,12 @@ class IntacctStream(RESTStream):
                 remaining = api_response["result"]["data"].get("@numremaining", None)
                 if total and remaining:
                     progress = int(total) - int(remaining)
+                    # TODO: this is showing 0/0 on the last iteration, paginator should skip last request
                     self.logger.info(f"{progress} of {total} records processed")
+                if self.intacct_obj_name not in api_response["result"]["data"]:
+                    # TODO: use module name instead of object name for GL
+                    self.logger.info(f"Pagination complete for {self.intacct_obj_name}")
+                    return []
                 return api_response["result"]["data"][self.intacct_obj_name]
 
             self.logger.error(f"Intacct error response: {api_response}")
@@ -466,7 +471,7 @@ class GeneralLedgerDetailsStream(IntacctStream):
         **kwargs,
     ):
         # Add MODULEKEY to discovered schema so it can be manually added in post_process
-        kwargs["schema"]["properties"]["MODULEKEY"] = th.StringType
+        kwargs["schema"]["properties"]["MODULEKEY"] = th.StringType().to_dict()
         super().__init__(*args, **kwargs)
 
     def _get_query_filter(

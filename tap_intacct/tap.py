@@ -74,13 +74,22 @@ class TapIntacct(Tap):
         )
         for stream_name in INTACCT_OBJECTS:
             schema = sage_client.load_schema_from_api(stream_name)
-            stream = streams.IntacctStream(
-                tap=self,
-                name=stream_name,
-                schema=schema,
-                intacct_obj_name=INTACCT_OBJECTS[stream_name],
-                replication_key="WHENMODIFIED",
-            )
+            if stream_name == "general_ledger_details":
+                stream = streams.GeneralLedgerDetailsStream(
+                    tap=self,
+                    name=stream_name,
+                    schema=schema,
+                    intacct_obj_name=INTACCT_OBJECTS[stream_name],
+                    replication_key="WHENMODIFIED",
+                )
+            else:
+                stream = streams.IntacctStream(
+                    tap=self,
+                    name=stream_name,
+                    schema=schema,
+                    intacct_obj_name=INTACCT_OBJECTS[stream_name],
+                    replication_key="WHENMODIFIED",
+                )
             discovered_streams.append(stream)
             # audit_stream = streams.SageStream(
             #     tap=self,

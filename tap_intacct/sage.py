@@ -12,6 +12,7 @@ from typing import Union
 import backoff
 import requests
 import xmltodict
+from singer_sdk import typing as th
 
 from tap_intacct.exceptions import (
     AuthFailure,
@@ -339,10 +340,7 @@ class SageIntacctSDK:
             schema_dict
 
         """
-        schema_dict = {}
-        schema_dict["type"] = "object"
-        schema_dict["properties"] = {}
-
+        properties: list[th.Property] = []
         required_list = ["RECORDNO", "WHENMODIFIED"]
         fields_data_response = self.get_fields_data_using_schema_name(
             object_type=stream
@@ -352,22 +350,19 @@ class SageIntacctSDK:
             if rec["ID"] in IGNORE_FIELDS:
                 continue
             if rec["DATATYPE"] in ["PERCENT", "DECIMAL"]:
-                type_data_type = "number"
+                type_data_type = th.NumberType
             elif rec["DATATYPE"] == "BOOLEAN":
-                type_data_type = "boolean"
+                type_data_type = th.BooleanType
             elif rec["DATATYPE"] in ["DATE", "TIMESTAMP"]:
-                type_data_type = "date-time"
+                type_data_type = th.DateTimeType
             else:
-                type_data_type = "string"
-            if type_data_type in ["string", "boolean", "number"]:
-                format_dict = {"type": ["null", type_data_type]}
-            else:
-                if type_data_type in ["date", "date-time"]:
-                    format_dict = {"type": ["null", "string"], "format": type_data_type}
-
-            schema_dict["properties"][rec["ID"]] = format_dict
-        schema_dict["required"] = required_list
-        return schema_dict
+                type_data_type = th.StringType
+            properties.append(
+                th.Property(
+                    rec["ID"], type_data_type, required=(rec["ID"] in required_list)
+                )
+            )
+        return th.PropertiesList(*properties).to_dict()
 
 
 def get_client(
