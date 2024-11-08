@@ -9,7 +9,10 @@ from datetime import datetime, timezone
 
 import xmltodict
 from singer_sdk import typing as th  # JSON schema typing helpers
-from singer_sdk.pagination import BaseAPIPaginator  # noqa: TCH002
+from singer_sdk.pagination import (
+    BaseAPIPaginator,  # noqa: TCH002
+    BaseOffsetPaginator,
+)
 from singer_sdk.streams import RESTStream
 
 from tap_intacct.const import GET_BY_DATE_FIELD, KEY_PROPERTIES, REP_KEYS
@@ -33,6 +36,8 @@ from tap_intacct.exceptions import (
 if t.TYPE_CHECKING:
     import requests
     from singer_sdk.helpers.types import Context
+
+PAGE_SIZE = 1000
 
 
 class IntacctStream(RESTStream):
@@ -94,7 +99,10 @@ class IntacctStream(RESTStream):
         Returns:
             A pagination helper instance.
         """
-        return super().get_new_paginator()
+        return BaseOffsetPaginator(
+            start_value=0,
+            page_size=PAGE_SIZE,
+        )
 
     def _format_date_for_intacct(self, datetime: datetime) -> str:
         """Intacct expects datetimes in a 'MM/DD/YY HH:MM:SS' string format.
@@ -189,9 +197,8 @@ class IntacctStream(RESTStream):
                 "select": {"field": list(self.schema["properties"])},
                 "options": {"showprivate": "true"},
                 "filter": query_filter,
-                "pagesize": 1000,
-                # TODO: need to paginate here
-                "offset": 0,
+                "pagesize": PAGE_SIZE,
+                "offset": next_page_token,
                 "orderby": orderby,
             }
         }
@@ -265,6 +272,10 @@ class IntacctStream(RESTStream):
                 )
 
             if api_response["result"]["status"] == "success":
+                total = int(api_response["result"]["data"]["@totalcount"])
+                remaining = int(api_response["result"]["data"]["@numremaining"])
+                progress = total - remaining
+                self.logger.info(f"{progress} of {total} records processed")
                 return api_response["result"]["data"][self.intacct_obj_name]
 
             self.logger.error(f"Intacct error response: {api_response}")
