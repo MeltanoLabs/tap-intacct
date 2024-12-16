@@ -9,12 +9,12 @@ class SageIntacctSDKError(Exception):
         response: Error response from the API call.
     """
 
-    def __init__(self, msg, response=None):
-        super(SageIntacctSDKError, self).__init__(msg)
+    def __init__(self, msg, response=None):  # noqa: ANN001, ANN204, D107
+        super(SageIntacctSDKError, self).__init__(msg)  # noqa: UP008
         self.message = msg
         self.response = response
 
-    def __str__(self):
+    def __str__(self):  # noqa: ANN204, D105
         return repr(self.message)
 
 
@@ -42,29 +42,29 @@ class InternalServerError(SageIntacctSDKError):
     """The rest SageIntacctSDK errors, 500 error."""
 
 
-class InvalidRequest(SageIntacctSDKError):
+class InvalidRequest(SageIntacctSDKError):  # noqa: N818
     """The rest SageIntacctSDK errors, 500 error."""
 
 
-class AuthFailure(SageIntacctSDKError):
+class AuthFailure(SageIntacctSDKError):  # noqa: N818
     """The rest SageIntacctSDK errors, 500 error."""
 
 
-class InvalidXmlResponse(Exception):
+class InvalidXmlResponse(Exception):  # noqa: N818, D101
     pass
 
 
-class BadGatewayError(Exception):
+class BadGatewayError(Exception):  # noqa: D101
     pass
 
 
-class OfflineServiceError(Exception):
+class OfflineServiceError(Exception):  # noqa: D101
     pass
 
 
-class RateLimitError(Exception):
+class RateLimitError(Exception):  # noqa: D101
     pass
 
 
-class PleaseTryAgainLaterError(Exception):
+class PleaseTryAgainLaterError(Exception):  # noqa: D101
     pass

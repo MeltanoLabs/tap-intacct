@@ -1,4 +1,4 @@
-REQUIRED_CONFIG_KEYS = [
+REQUIRED_CONFIG_KEYS = [  # noqa: D100
     "company_id",
     "sender_id",
     "sender_password",
@@ -58,7 +58,7 @@ INTACCT_OBJECTS = {
     "adjustment_items": "ARADJUSTMENTITEM",
     "departments": "DEPARTMENT",
     # "audit_history": "AUDITHISTORY",
-    "locations": "LOCATION"
+    "locations": "LOCATION",
 }
 
 REP_KEYS = {"audit_history": "ACCESSTIME"}

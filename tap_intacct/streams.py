@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http
 import json
 import re
 import typing as t
@@ -13,7 +14,7 @@ import requests
 import xmltodict
 from singer_sdk import typing as th  # JSON schema typing helpers
 from singer_sdk.pagination import (
-    BaseAPIPaginator,  # noqa: TCH002
+    BaseAPIPaginator,
     BaseOffsetPaginator,
 )
 from singer_sdk.streams import RESTStream
@@ -37,23 +38,24 @@ from tap_intacct.exceptions import (
 )
 
 if t.TYPE_CHECKING:
-    import requests
+    import logging
+
     from singer_sdk.helpers.types import Context
 
 PAGE_SIZE = 1000
 
 
-class IntacctOffsetPaginator(BaseOffsetPaginator):
-    def __init__(
+class IntacctOffsetPaginator(BaseOffsetPaginator):  # noqa: D101
+    def __init__(  # noqa: ANN204, D107
         self,
-        *args,
-        logger=None,
-        **kwargs,
+        *args: t.Any,
+        logger: logging.Logger | None = None,
+        **kwargs: t.Any,
     ):
         self.logger = logger
         super().__init__(*args, **kwargs)
 
-    def has_more(self, response: requests.Response) -> bool:  # noqa: ARG002, PLR6301
+    def has_more(self, response: requests.Response) -> bool:
         """Override this method to check if the endpoint has any pages left.
 
         Args:
@@ -64,14 +66,12 @@ class IntacctOffsetPaginator(BaseOffsetPaginator):
         """
         parsed_xml = xmltodict.parse(response.text)
         parsed_response = json.loads(json.dumps(parsed_xml))
-        total = parsed_response["response"]["operation"]["result"]["data"].get(
-            "@totalcount", 0
-        )
+        total = parsed_response["response"]["operation"]["result"]["data"].get("@totalcount", 0)
         remaining = parsed_response["response"]["operation"]["result"]["data"].get(
             "@numremaining", 0
         )
         progress = int(total) - int(remaining)
-        self.logger.info(f"{progress} of {total} records processed")
+        self.logger.info("%d of total %s records processed", progress, total)
         return int(remaining) > 0
 
 
@@ -84,20 +84,19 @@ class IntacctStream(RESTStream):
 
     def __init__(
         self,
-        *args,
-        intacct_obj_name=None,
-        replication_key=None,
-        **kwargs,
-    ):
+        *args: t.Any,
+        intacct_obj_name: str | None = None,
+        replication_key: str | None = None,
+        **kwargs: t.Any,
+    ) -> None:
+        """Initialize stream."""
         super().__init__(*args, **kwargs)
         self.primary_keys = KEY_PROPERTIES[self.name]
         self.intacct_obj_name = intacct_obj_name
         self.replication_key = replication_key
         self.session_id = self._get_session_id()
         self.datetime_fields = [
-            i
-            for i, t in self.schema["properties"].items()
-            if t.get("format", "") == "date-time"
+            i for i, t in self.schema["properties"].items() if t.get("format", "") == "date-time"
         ]
 
     @property
@@ -152,13 +151,12 @@ class IntacctStream(RESTStream):
         parsed_response = json.loads(json.dumps(parsed_xml))
         if (
             parsed_response["response"]["control"]["status"] == "success"
-            and parsed_response["response"]["operation"]["authentication"]["status"]
-            == "success"
+            and parsed_response["response"]["operation"]["authentication"]["status"] == "success"
         ):
-            return parsed_response["response"]["operation"]["result"]["data"]["api"][
-                "sessionid"
-            ]
-        raise SageIntacctSDKError("Error: {0}".format(parsed_response["errormessage"]))
+            return parsed_response["response"]["operation"]["result"]["data"]["api"]["sessionid"]
+
+        msg = f"Error: {parsed_response['errormessage']}"
+        raise SageIntacctSDKError(msg)
 
     @property
     def url_base(self) -> str:
@@ -176,7 +174,7 @@ class IntacctStream(RESTStream):
         if "user_agent" in self.config:
             headers["User-Agent"] = self.config.get("user_agent")
         # If not using an authenticator, you may also provide inline auth headers:
-        # headers["Private-Token"] = self.config.get("auth_token")  # noqa: ERA001
+        # headers["Private-Token"] = self.config.get("auth_token")
         return headers
 
     def get_new_paginator(self) -> BaseAPIPaginator:
@@ -252,16 +250,14 @@ class IntacctStream(RESTStream):
         return {
             "greaterthanorequalto": {
                 "field": rep_key,
-                "value": self._format_date_for_intacct(
-                    self.get_starting_timestamp(context)
-                ),
+                "value": self._format_date_for_intacct(self.get_starting_timestamp(context)),
             }
         }
 
     def prepare_request_payload(
         self,
-        context: Context | None,  # noqa: ARG002
-        next_page_token: t.Any | None,  # noqa: ARG002, ANN401
+        context: Context | None,
+        next_page_token: t.Any | None,  # noqa: ANN401
     ) -> dict | None:
         """Prepare the data payload for the REST API request.
 
@@ -275,7 +271,7 @@ class IntacctStream(RESTStream):
             A dictionary with the JSON body for a POST requests.
         """
         if self.name == "audit_history":
-            raise Exception("TODO hanlde audit streams")
+            raise Exception("TODO hanlde audit streams")  # noqa: EM101, TRY002, TRY003
 
         rep_key = REP_KEYS.get(self.name, GET_BY_DATE_FIELD)
         orderby = {
@@ -310,9 +306,7 @@ class IntacctStream(RESTStream):
                 },
                 "operation": {
                     "authentication": {"sessionid": self.session_id},
-                    "content": {
-                        "function": {"@controlid": str(uuid.uuid4()), key: data[key]}
-                    },
+                    "content": {"function": {"@controlid": str(uuid.uuid4()), key: data[key]}},
                 },
             }
         }
@@ -351,7 +345,7 @@ class IntacctStream(RESTStream):
 
         return errormessages
 
-    def parse_response(self, response: requests.Response) -> t.Iterable[dict]:
+    def parse_response(self, response: requests.Response) -> t.Iterable[dict]:  # noqa: C901, PLR0912, PLR0915
         """Parse the response and return an iterator of result records.
 
         Args:
@@ -363,49 +357,45 @@ class IntacctStream(RESTStream):
         try:
             parsed_xml = xmltodict.parse(response.text)
             parsed_response = json.loads(json.dumps(parsed_xml))
-        except:
-            if response.status_code == 502:
-                raise BadGatewayError(
-                    f"Response status code: {response.status_code}, response: {response.text}"
-                )
-            if response.status_code == 503:
-                raise OfflineServiceError(
-                    f"Response status code: {response.status_code}, response: {response.text}"
-                )
-            if response.status_code == 429:
-                raise RateLimitError(
-                    f"Response status code: {response.status_code}, response: {response.text}"
-                )
-            raise InvalidXmlResponse(
-                f"Response status code: {response.status_code}, response: {response.text}"
-            )
+        except Exception as e:
+            if response.status_code == http.HTTPStatus.BAD_GATEWAY:
+                msg = f"Response status code: {response.status_code}, response: {response.text}"
+                raise BadGatewayError(msg) from e
 
-        if response.status_code == 200:
+            if response.status_code == http.HTTPStatus.SERVICE_UNAVAILABLE:
+                msg = f"Response status code: {response.status_code}, response: {response.text}"
+                raise OfflineServiceError(msg) from e
+
+            if response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
+                msg = f"Response status code: {response.status_code}, response: {response.text}"
+                raise RateLimitError(msg) from e
+
+            msg = f"Response status code: {response.status_code}, response: {response.text}"
+            raise InvalidXmlResponse(msg) from e
+
+        if response.status_code == http.HTTPStatus.OK:
             if parsed_response["response"]["control"]["status"] == "success":
                 api_response = parsed_response["response"]["operation"]
 
             if parsed_response["response"]["control"]["status"] == "failure":
-                exception_msg = self.decode_support_id(
-                    parsed_response["response"]["errormessage"]
-                )
-                raise WrongParamsError(
-                    "Some of the parameters are wrong", exception_msg
+                exception_msg = self.decode_support_id(parsed_response["response"]["errormessage"])
+                raise WrongParamsError(  # noqa: TRY003
+                    "Some of the parameters are wrong",  # noqa: EM101
+                    exception_msg,
                 )
 
             if api_response["authentication"]["status"] == "failure":
-                raise InvalidTokenError(
-                    "Invalid token / Incorrect credentials",
+                raise InvalidTokenError(  # noqa: TRY003
+                    "Invalid token / Incorrect credentials",  # noqa: EM101
                     api_response["errormessage"],
                 )
 
             if api_response["result"]["status"] == "success":
                 return api_response["result"]["data"].get(self.intacct_obj_name, [])
 
-            self.logger.error(f"Intacct error response: {api_response}")
-            error = (
-                api_response.get("result", {}).get("errormessage", {}).get("error", {})
-            )
-            desc_2 = (
+            self.logger.error("Intacct error response: %s", api_response)
+            error = api_response.get("result", {}).get("errormessage", {}).get("error", {})
+            desc_2 = (  # noqa: F841
                 error.get("description2")
                 if isinstance(error, dict)
                 else error[0].get("description2")
@@ -424,57 +414,53 @@ class IntacctStream(RESTStream):
             # ):
             #     return {"result": "skip_and_paginate"}
 
-        exception_msg = (
-            parsed_response.get("response", {}).get("errormessage", {}).get("error", {})
-        )
+        exception_msg = parsed_response.get("response", {}).get("errormessage", {}).get("error", {})
         correction = exception_msg.get("correction", {})
 
-        if response.status_code == 400:
+        if response.status_code == http.HTTPStatus.BAD_REQUEST:
             if exception_msg.get("errorno") == "GW-0011":
-                raise AuthFailure(
-                    f"One or more authentication values are incorrect. Response:{parsed_response}"
+                msg = (
+                    "One or more authentication values are incorrect. "
+                    f"Response:{parsed_response}"
                 )
-            raise InvalidRequest("Invalid request", parsed_response)
+                raise AuthFailure(msg)
+            raise InvalidRequest("Invalid request", parsed_response)  # noqa: EM101, TRY003
 
-        if response.status_code == 401:
-            raise InvalidTokenError(
-                f"Invalid token / Incorrect credentials. Response: {parsed_response}"
-            )
+        if response.status_code == http.HTTPStatus.UNAUTHORIZED:
+            msg = f"Invalid token / Incorrect credentials. Response: {parsed_response}"
+            raise InvalidTokenError(msg)
 
-        if response.status_code == 403:
-            raise NoPrivilegeError(
-                f"Forbidden, the user has insufficient privilege. Response: {parsed_response}"
-            )
+        if response.status_code == http.HTTPStatus.FORBIDDEN:
+            msg = f"Forbidden, the user has insufficient privilege. Response: {parsed_response}"
+            raise NoPrivilegeError(msg)
 
-        if response.status_code == 404:
-            raise NotFoundItemError(
-                f"Not found item with ID. Response: {parsed_response}"
-            )
+        if response.status_code == http.HTTPStatus.NOT_FOUND:
+            msg = f"Not found item with ID. Response: {parsed_response}"
+            raise NotFoundItemError(msg)
 
-        if response.status_code == 498:
-            raise ExpiredTokenError(
-                f"Expired token, try to refresh it. Response: {parsed_response}"
-            )
+        if response.status_code == 498:  # noqa: PLR2004
+            msg = f"Expired token, try to refresh it. Response: {parsed_response}"
+            raise ExpiredTokenError(msg)
 
-        if response.status_code == 500:
-            raise InternalServerError(
-                f"Internal server error. Response: {parsed_response}"
-            )
+        if response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR:
+            msg = f"Internal server error. Response: {parsed_response}"
+            raise InternalServerError(msg)
 
         if correction and "Please Try Again Later" in correction:
             raise PleaseTryAgainLaterError(parsed_response)
 
-        raise SageIntacctSDKError("Error: {0}".format(parsed_response))
+        msg = f"Error: {parsed_response}"
+        raise SageIntacctSDKError(msg)
 
     def _parse_to_datetime(self, date_str: str) -> datetime:
         # Try to parse with the full format first
         try:
-            return datetime.strptime(date_str, "%m/%d/%Y %H:%M:%S")
+            return datetime.strptime(date_str, "%m/%d/%Y %H:%M:%S").replace(tzinfo=timezone.utc)
         # .replace(tzinfo=datetime.timezone.utc)
         except ValueError:
             # If it fails, try the date-only format
             try:
-                return datetime.strptime(date_str, "%m/%d/%Y")
+                return datetime.strptime(date_str, "%m/%d/%Y").replace(tzinfo=timezone.utc)
             # .replace(tzinfo=datetime.timezone.utc)
             except ValueError as err:
                 # Handle cases where the format is still incorrect
@@ -502,13 +488,14 @@ class IntacctStream(RESTStream):
 
 
 class GeneralLedgerDetailsStream(IntacctStream):
-    """ "General Ledger Details" stream."""
+    """General Ledger Details stream."""
 
     def __init__(
         self,
-        *args,
-        **kwargs,
-    ):
+        *args: t.Any,
+        **kwargs: t.Any,
+    ) -> None:
+        """Initialize stream."""
         # Add MODULEKEY to discovered schema so it can be manually added in post_process
         kwargs["schema"]["properties"]["MODULEKEY"] = th.StringType().to_dict()
         super().__init__(*args, **kwargs)

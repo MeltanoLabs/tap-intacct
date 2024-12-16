@@ -3,7 +3,7 @@ name = "meltanolabs-tap-intacct"
 version = "0.0.1"
 description = "Singer tap for Intacct, built with the Meltano Singer SDK."
 readme = "README.md"
-authors = ["Pat Nadolny <firstname.lastname@example.com>"]
+authors = ["Pat Nadolny <pat@arch.dev>"]
 keywords = [
     "ELT",
     "Intacct",
@@ -26,7 +26,7 @@ packages = [
 python = ">=3.9"
 singer-sdk = { version="~=0.42.1", extras = [] }
 fs-s3fs = { version = "~=1.1.1", optional = true }
-xmltodict = "^0.14.2"
+xmltodict = "~=0.14.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8"
@@ -43,14 +43,14 @@ python_version = "3.12"
 warn_unused_configs = true
 
 [tool.ruff]
+line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
 ignore = [
-    "ANN101",  # missing-type-self
-    "ANN102",  # missing-type-cls
     "COM812",  # missing-trailing-comma
     "ISC001",  # single-line-implicit-string-concatenation
+    "ERA001",  # commented-out-code
 ]
 select = ["ALL"]
 
