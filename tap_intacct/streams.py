@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http
 import json
+import logging
 import re
 import typing as t
 import uuid
@@ -37,8 +38,9 @@ from tap_intacct.exceptions import (
     WrongParamsError,
 )
 
+
+
 if t.TYPE_CHECKING:
-    import logging
 
     from singer_sdk.helpers.types import Context
 
@@ -49,10 +51,10 @@ class IntacctOffsetPaginator(BaseOffsetPaginator):  # noqa: D101
     def __init__(  # noqa: ANN204, D107
         self,
         *args: t.Any,
-        logger: logging.Logger | None = None,
+        logger_name: str | None = None,
         **kwargs: t.Any,
     ):
-        self.logger = logger
+        self.logger = logging.getLogger(logger_name or __name__)
         super().__init__(*args, **kwargs)
 
     def has_more(self, response: requests.Response) -> bool:
@@ -193,7 +195,7 @@ class IntacctStream(RESTStream):
         return IntacctOffsetPaginator(
             start_value=0,
             page_size=PAGE_SIZE,
-            logger=self.logger,
+            logger_name=f"{self.tap_name}.{self.name}",
         )
 
     def _format_date_for_intacct(self, datetime: datetime) -> str:
@@ -326,7 +328,7 @@ class IntacctStream(RESTStream):
         return error
 
     @staticmethod
-    def decode_support_id(errormessages: list | dict) -> list | dict:
+    def decode_support_id(errormessages: dict) -> list | dict:
         """Decode the support ID from the error message."""
         support_id_msg = IntacctStream.support_id_msg(errormessages)
         data_type = support_id_msg["type"]

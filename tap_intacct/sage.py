@@ -336,7 +336,7 @@ class SageIntacctSDK:
         Returns:
             The JSON Schema as a dictionary.
 
-        """  # noqa: W293
+        """
         properties: list[th.Property] = []
         required_list = ["RECORDNO", "WHENMODIFIED"]
         fields_data_response = self.get_fields_data_using_schema_name(object_type=stream)
