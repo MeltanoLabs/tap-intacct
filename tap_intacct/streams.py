@@ -98,9 +98,7 @@ class IntacctStream(RESTStream):
             i for i, t in self.schema["properties"].items() if t.get("format", "") == "date-time"
         ]
         self.numeric_fields = [
-            i
-            for i, t in self.schema["properties"].items()
-            if "number" in t.get("type", "")
+            i for i, t in self.schema["properties"].items() if "number" in t.get("type", "")
         ]
 
     @property
@@ -275,7 +273,7 @@ class IntacctStream(RESTStream):
             A dictionary with the JSON body for a POST requests.
         """
         if self.name == "audit_history":
-            raise Exception("TODO hanlde audit streams")  # noqa: EM101, TRY002, TRY003
+            raise Exception("TODO handle audit streams")  # noqa: EM101, TRY002, TRY003
 
         rep_key = REP_KEYS.get(self.name, GET_BY_DATE_FIELD)
         orderby = {

@@ -1,6 +1,7 @@
 """API Base class with util functions"""  # noqa: D415
 
 import datetime as dt
+import http
 import json
 import logging
 import re
@@ -181,15 +182,15 @@ class SageIntacctSDK:
             parsed_xml = xmltodict.parse(response.text)
             parsed_response = json.loads(json.dumps(parsed_xml))
         except:  # noqa: E722
-            if response.status_code == 502:  # noqa: PLR2004
+            if response.status_code == http.HTTPStatus.BAD_GATEWAY:  # 502
                 raise BadGatewayError(  # noqa: B904, TRY003
                     f"Response status code: {response.status_code}, response: {response.text}"  # noqa: EM102
                 )
-            if response.status_code == 503:  # noqa: PLR2004
+            if response.status_code == http.HTTPStatus.SERVICE_UNAVAILABLE:  # 503
                 raise OfflineServiceError(  # noqa: B904, TRY003
                     f"Response status code: {response.status_code}, response: {response.text}"  # noqa: EM102
                 )
-            if response.status_code == 429:  # noqa: PLR2004
+            if response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:  # 429
                 raise RateLimitError(  # noqa: B904, TRY003
                     f"Response status code: {response.status_code}, response: {response.text}"  # noqa: EM102
                 )
@@ -197,7 +198,7 @@ class SageIntacctSDK:
                 f"Response status code: {response.status_code}, response: {response.text}"  # noqa: EM102
             )
 
-        if response.status_code == 200:  # noqa: PLR2004
+        if response.status_code == http.HTTPStatus.OK:  # 200
             if parsed_response["response"]["control"]["status"] == "success":
                 api_response = parsed_response["response"]["operation"]
 
@@ -240,36 +241,36 @@ class SageIntacctSDK:
         exception_msg = parsed_response.get("response", {}).get("errormessage", {}).get("error", {})
         correction = exception_msg.get("correction", {})  # type: ignore[union-attr]
 
-        if response.status_code == 400:  # noqa: PLR2004
+        if response.status_code == http.HTTPStatus.BAD_REQUEST:  # 400
             if exception_msg.get("errorno") == "GW-0011":  # type: ignore[union-attr]
                 raise AuthFailure(  # noqa: TRY003
                     f"One or more authentication values are incorrect. Response:{parsed_response}"  # noqa: EM102
                 )
             raise InvalidRequest("Invalid request", parsed_response)  # noqa: EM101, TRY003
 
-        if response.status_code == 401:  # noqa: PLR2004
+        if response.status_code == http.HTTPStatus.UNAUTHORIZED:  # 401
             raise InvalidTokenError(  # noqa: TRY003
                 f"Invalid token / Incorrect credentials. Response: {parsed_response}"  # noqa: EM102
             )
 
-        if response.status_code == 403:  # noqa: PLR2004
+        if response.status_code == http.HTTPStatus.FORBIDDEN:  # 403
             raise NoPrivilegeError(  # noqa: TRY003
                 f"Forbidden, the user has insufficient privilege. Response: {parsed_response}"  # noqa: EM102
             )
 
-        if response.status_code == 404:  # noqa: PLR2004
+        if response.status_code == http.HTTPStatus.NOT_FOUND:  # 404
             raise NotFoundItemError(  # noqa: TRY003
                 f"Not found item with ID. Response: {parsed_response}"  # noqa: EM102
+            )
+
+        if response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR:  # 500
+            raise InternalServerError(  # noqa: TRY003
+                f"Internal server error. Response: {parsed_response}"  # noqa: EM102
             )
 
         if response.status_code == 498:  # noqa: PLR2004
             raise ExpiredTokenError(  # noqa: TRY003
                 f"Expired token, try to refresh it. Response: {parsed_response}"  # noqa: EM102
-            )
-
-        if response.status_code == 500:  # noqa: PLR2004
-            raise InternalServerError(  # noqa: TRY003
-                f"Internal server error. Response: {parsed_response}"  # noqa: EM102
             )
 
         if correction and "Please Try Again Later" in correction:
