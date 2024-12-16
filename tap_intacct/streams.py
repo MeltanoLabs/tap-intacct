@@ -38,10 +38,7 @@ from tap_intacct.exceptions import (
     WrongParamsError,
 )
 
-
-
 if t.TYPE_CHECKING:
-
     from singer_sdk.helpers.types import Context
 
 PAGE_SIZE = 1000
