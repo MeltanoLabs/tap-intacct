@@ -99,6 +99,11 @@ class IntacctStream(RESTStream):
             for i, t in self.schema["properties"].items()
             if t.get("format", "") == "date-time"
         ]
+        self.numeric_fields = [
+            i
+            for i, t in self.schema["properties"].items()
+            if "number" in t.get("type", "")
+        ]
 
     @property
     def is_sorted(self) -> bool:
@@ -498,6 +503,9 @@ class IntacctStream(RESTStream):
         for field in self.datetime_fields:
             if row[field] is not None:
                 row[field] = self._parse_to_datetime(row[field])
+        for field in self.numeric_fields:
+            if row[field] is not None:
+                row[field] = float(row[field])
         return row
 
 
