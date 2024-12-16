@@ -98,9 +98,7 @@ class IntacctStream(RESTStream):
             i for i, t in self.schema["properties"].items() if t.get("format", "") == "date-time"
         ]
         self.numeric_fields = [
-            i
-            for i, t in self.schema["properties"].items()
-            if "number" in t.get("type", "")
+            i for i, t in self.schema["properties"].items() if "number" in t.get("type", "")
         ]
 
     @property
@@ -395,7 +393,11 @@ class IntacctStream(RESTStream):
                 )
 
             if api_response["result"]["status"] == "success":
-                return api_response["result"]["data"].get(self.intacct_obj_name, [])
+                records = api_response["result"]["data"].get(self.intacct_obj_name, [])
+                # Intacct returns a dict when only 1 object is found.
+                if isinstance(records, dict):
+                    return [records]
+                return records
 
             self.logger.error("Intacct error response: %s", api_response)
             error = api_response.get("result", {}).get("errormessage", {}).get("error", {})
