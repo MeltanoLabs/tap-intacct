@@ -56,7 +56,7 @@ class TapIntacct(Tap):
         ),
     ).to_dict()
 
-    def discover_streams(self) -> list[streams.TableStream]:
+    def discover_streams(self) -> list[streams.IntacctStream]:
         """Return a list of discovered streams.
 
         Returns:

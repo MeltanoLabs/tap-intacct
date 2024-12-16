@@ -315,7 +315,7 @@ class IntacctStream(RESTStream):
         return xmltodict.unparse(dict_body)
 
     @staticmethod
-    def support_id_msg(errormessages: list | dict) -> list | dict:
+    def support_id_msg(errormessages: dict) -> dict:
         """Get the support ID message from the error message."""
         error = {}
         if isinstance(errormessages["error"], list):
@@ -417,10 +417,10 @@ class IntacctStream(RESTStream):
             #     return {"result": "skip_and_paginate"}
 
         exception_msg = parsed_response.get("response", {}).get("errormessage", {}).get("error", {})
-        correction = exception_msg.get("correction", {})
+        correction = exception_msg.get("correction", {})  # type: ignore[union-attr]
 
         if response.status_code == http.HTTPStatus.BAD_REQUEST:
-            if exception_msg.get("errorno") == "GW-0011":
+            if exception_msg.get("errorno") == "GW-0011":  # type: ignore[union-attr]
                 msg = (
                     "One or more authentication values are incorrect. "
                     f"Response:{parsed_response}"
@@ -512,7 +512,7 @@ class GeneralLedgerDetailsStream(IntacctStream):
                 **super()._get_query_filter(rep_key, context),
                 "equalto": {
                     "field": "MODULEKEY",
-                    "value": context["MODULEKEY"],
+                    "value": context["MODULEKEY"],  # type: ignore[index]
                 },
             }
         }

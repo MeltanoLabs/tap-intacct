@@ -231,17 +231,17 @@ class SageIntacctSDK:
             if (
                 api_response["result"]["status"] == "failure"
                 and error
-                and "There was an error processing the request" in desc_2
+                and "There was an error processing the request" in desc_2  # type: ignore[operator]
                 and dict_body["request"]["operation"]["content"]["function"]["query"]["object"]
                 == "AUDITHISTORY"
             ):
                 return {"result": "skip_and_paginate"}
 
         exception_msg = parsed_response.get("response", {}).get("errormessage", {}).get("error", {})
-        correction = exception_msg.get("correction", {})
+        correction = exception_msg.get("correction", {})  # type: ignore[union-attr]
 
         if response.status_code == 400:  # noqa: PLR2004
-            if exception_msg.get("errorno") == "GW-0011":
+            if exception_msg.get("errorno") == "GW-0011":  # type: ignore[union-attr]
                 raise AuthFailure(  # noqa: TRY003
                     f"One or more authentication values are incorrect. Response:{parsed_response}"  # noqa: EM102
                 )
