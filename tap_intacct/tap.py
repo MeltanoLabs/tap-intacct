@@ -102,7 +102,9 @@ class TapIntacct(Tap):
 
         discovered_streams.append(
             streams.TrialBalancesStream(
-                tap=self, name="trial_balances", intacct_obj_name="trialbalance"
+                tap=self,
+                name="trial_balances",
+                intacct_obj_name="trialbalance",
             )
         )
 
