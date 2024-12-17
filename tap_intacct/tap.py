@@ -99,6 +99,15 @@ class TapIntacct(Tap):
             #     replication_key="ACCESSTIME",
             # )
             # discovered_streams.append(audit_stream)
+
+        discovered_streams.append(
+            streams.TrialBalancesStream(
+                tap=self,
+                name="trial_balances",
+                intacct_obj_name="trialbalance",
+            )
+        )
+
         return discovered_streams
 
 
