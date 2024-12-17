@@ -100,13 +100,7 @@ class TapIntacct(Tap):
             # )
             # discovered_streams.append(audit_stream)
 
-        discovered_streams.append(
-            streams.TrialBalancesStream(
-                tap=self,
-                name="trial_balances",
-                intacct_obj_name="trialbalance",
-            )
-        )
+        discovered_streams.append(streams.TrialBalancesStream(tap=self))
 
         return discovered_streams
 

@@ -93,11 +93,10 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
     #: The operation/entity is defined in the payload, not the path
     path = None
 
-    def __init__(self, *args: t.Any, intacct_obj_name: str | None = None, **kwargs: t.Any) -> None:
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         """Initialize stream."""
         super().__init__(*args, **kwargs)
         self.session_id = self._get_session_id()
-        self.intacct_obj_name = intacct_obj_name
         self.datetime_fields = [
             i for i, t in self.schema["properties"].items() if t.get("format", "") == "date-time"
         ]
@@ -430,6 +429,11 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
     ) -> dict:
         """Generate request data for a general Intacct stream."""
 
+    @property
+    @abc.abstractmethod
+    def intacct_obj_name(self) -> str:
+        """Return the Intacct object name."""
+
 
 class IntacctStream(BaseIntacctStream):
     """Intacct stream class."""
@@ -437,13 +441,20 @@ class IntacctStream(BaseIntacctStream):
     def __init__(
         self,
         *args: t.Any,
+        intacct_obj_name: str,
         replication_key: str | None = None,
         **kwargs: t.Any,
     ) -> None:
         """Initialize stream."""
         super().__init__(*args, **kwargs)
         self.primary_keys = KEY_PROPERTIES[self.name]
+        self._intacct_obj_name = intacct_obj_name
         self.replication_key = replication_key
+
+    @property
+    def intacct_obj_name(self) -> str:
+        """The Intacct object name."""
+        return self._intacct_obj_name
 
     def _format_date_for_intacct(self, datetime: datetime) -> str:
         """Intacct expects datetimes in a 'MM/DD/YY HH:MM:SS' string format.
@@ -549,13 +560,32 @@ class GeneralLedgerDetailsStream(IntacctStream):
         ]
 
 
-class TrialBalancesStream(BaseIntacctStream):
-    """Trial balances.
+class _LegacyFunctionStream(BaseIntacctStream, metaclass=abc.ABCMeta):
+    """Base Intacct stream class for legacy functions."""
 
-    https://developer.intacct.com/api/general-ledger/trial-balances/
-    """
+    def get_request_data(
+        self,
+        context: Context | None,
+        next_page_token: int | None,
+    ) -> dict:
+        """Generate request data for a "legacy" Intacct stream."""
+        return {
+            self.function_name: self.get_function_arguments(context, next_page_token),
+        }
 
-    name = "trial_balances"
+    @property
+    @abc.abstractmethod
+    def function_name(self) -> str:
+        """Return the function name."""
+
+    @abc.abstractmethod
+    def get_function_arguments(self, context: Context | None, next_page_token: int | None) -> dict:
+        """Return the function arguments."""
+
+
+class _BaseBalancesStream(_LegacyFunctionStream):
+    """Generic balances stream."""
+
     primary_keys = ("glaccountno",)
 
     schema = th.PropertiesList(
@@ -570,7 +600,7 @@ class TrialBalancesStream(BaseIntacctStream):
         th.Property("currency", th.StringType),
     ).to_dict()
 
-    def get_request_data(
+    def get_function_arguments(
         self,
         context: Context | None,  # noqa: ARG002
         next_page_token: int | None,  # noqa: ARG002
@@ -595,10 +625,18 @@ class TrialBalancesStream(BaseIntacctStream):
             "month": end_date.month,
             "day": end_date.day,
         }
-
         return {
-            "get_trialbalance": {
-                "startdate": start_date_obj,
-                "enddate": end_date_obj,
-            }
+            "startdate": start_date_obj,
+            "enddate": end_date_obj,
         }
+
+
+class TrialBalancesStream(_BaseBalancesStream):
+    """Trial balances.
+
+    https://developer.intacct.com/api/general-ledger/trial-balances/
+    """
+
+    name = "trial_balances"
+    intacct_obj_name = "trialbalance"
+    function_name = "get_trialbalance"
