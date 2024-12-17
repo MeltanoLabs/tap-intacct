@@ -102,16 +102,7 @@ class TapIntacct(Tap):
 
         discovered_streams.append(
             streams.TrialBalancesStream(
-                tap=self,
-                name="trial_balances",
-                schema={
-                    "properties": {
-                        "sss": {
-                            "type": "string",
-                            "format": "date-time",
-                        }
-                    }
-                },
+                tap=self, name="trial_balances", intacct_obj_name="trialbalance"
             )
         )
 

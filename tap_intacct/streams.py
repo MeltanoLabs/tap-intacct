@@ -7,6 +7,7 @@ import http
 import json
 import logging
 import re
+import sys
 import typing as t
 import uuid
 from datetime import datetime, timezone
@@ -38,6 +39,11 @@ from tap_intacct.exceptions import (
     SageIntacctSDKError,
     WrongParamsError,
 )
+
+if sys.version_info < (3, 11):
+    from backports.datetime_fromisoformat import MonkeyPatch
+
+    MonkeyPatch.patch_fromisoformat()
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
@@ -81,10 +87,11 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
     rest_method = "POST"
     path = None
 
-    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+    def __init__(self, *args: t.Any, intacct_obj_name: str | None = None, **kwargs: t.Any) -> None:
         """Initialize stream."""
         super().__init__(*args, **kwargs)
         self.session_id = self._get_session_id()
+        self.intacct_obj_name = intacct_obj_name
         self.datetime_fields = [
             i for i, t in self.schema["properties"].items() if t.get("format", "") == "date-time"
         ]
@@ -459,14 +466,12 @@ class IntacctStream(BaseIntacctStream):
     def __init__(
         self,
         *args: t.Any,
-        intacct_obj_name: str | None = None,
         replication_key: str | None = None,
         **kwargs: t.Any,
     ) -> None:
         """Initialize stream."""
         super().__init__(*args, **kwargs)
         self.primary_keys = KEY_PROPERTIES[self.name]
-        self.intacct_obj_name = intacct_obj_name
         self.replication_key = replication_key
 
     def _format_date_for_intacct(self, datetime: datetime) -> str:
@@ -580,20 +585,34 @@ class TrialBalancesStream(BaseIntacctStream):
     """
 
     name = "trial_balances"
-    replication_key = "sss"
+    primary_keys = ("glaccountno",)
+
+    schema = th.PropertiesList(
+        th.Property("glaccountno", th.StringType),
+        th.Property("startbalance", th.NumberType),
+        th.Property("debits", th.NumberType),
+        th.Property("credits", th.NumberType),
+        th.Property("adjdebits", th.NumberType),
+        th.Property("adjcredits", th.NumberType),
+        th.Property("endbalance", th.NumberType),
+        th.Property("reportingbook", th.StringType),
+        th.Property("currency", th.StringType),
+    ).to_dict()
 
     def get_request_data(
         self,
-        context: Context | None,
+        context: Context | None,  # noqa: ARG002
         next_page_token: int | None,  # noqa: ARG002
     ) -> dict:
         """Generate request data for trial balances."""
-        start_date = self.get_starting_timestamp(context)
+        raw_start_date: str | None = self.config.get("start_date")
         end_date = datetime.now(timezone.utc)
 
-        if not start_date:
+        if not raw_start_date:
             msg = f"A starting timestamp is required for '{self.name}'"
             raise RuntimeError(msg)
+
+        start_date = datetime.fromisoformat(raw_start_date)
 
         start_date_obj = {
             "year": start_date.year,
@@ -610,8 +629,5 @@ class TrialBalancesStream(BaseIntacctStream):
             "get_trialbalance": {
                 "startdate": start_date_obj,
                 "enddate": end_date_obj,
-                "showzerobalances": True,
-                "showdeptdetail": True,
-                "showlocdetail": True,
             }
         }
