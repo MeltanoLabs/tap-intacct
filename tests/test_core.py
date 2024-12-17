@@ -2,7 +2,7 @@
 
 import datetime
 
-from singer_sdk.testing import get_tap_test_class
+from singer_sdk.testing import SuiteConfig, get_tap_test_class
 
 from tap_intacct.tap import TapIntacct
 
@@ -15,4 +15,7 @@ SAMPLE_CONFIG = {
 TestTapIntacct = get_tap_test_class(
     tap_class=TapIntacct,
     config=SAMPLE_CONFIG,
+    suite_config=SuiteConfig(
+        max_records_limit=15,
+    ),
 )

@@ -34,7 +34,7 @@ KEY_PROPERTIES = {
 }
 
 # List of available objects with their internal object-reference/endpoint name.
-INTACCT_OBJECTS = {
+INTACCT_OBJECTS: dict[str, str] = {
     "accounts_payable_bills": "APBILL",
     "accounts_payable_payments": "APPYMT",
     "accounts_payable_vendors": "VENDOR",

@@ -99,6 +99,22 @@ class TapIntacct(Tap):
             #     replication_key="ACCESSTIME",
             # )
             # discovered_streams.append(audit_stream)
+
+        discovered_streams.append(
+            streams.TrialBalancesStream(
+                tap=self,
+                name="trial_balances",
+                schema={
+                    "properties": {
+                        "sss": {
+                            "type": "string",
+                            "format": "date-time",
+                        }
+                    }
+                },
+            )
+        )
+
         return discovered_streams
 
 

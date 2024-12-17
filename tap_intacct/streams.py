@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import abc
 import http
 import json
 import logging
@@ -74,25 +75,15 @@ class IntacctOffsetPaginator(BaseOffsetPaginator):  # noqa: D101
         return int(remaining) > 0
 
 
-class IntacctStream(RESTStream):
-    """Intacct stream class."""
+class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
+    """Base Intacct stream class."""
 
-    # Update this value if necessary or override `parse_response`.
     rest_method = "POST"
     path = None
 
-    def __init__(
-        self,
-        *args: t.Any,
-        intacct_obj_name: str | None = None,
-        replication_key: str | None = None,
-        **kwargs: t.Any,
-    ) -> None:
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         """Initialize stream."""
         super().__init__(*args, **kwargs)
-        self.primary_keys = KEY_PROPERTIES[self.name]
-        self.intacct_obj_name = intacct_obj_name
-        self.replication_key = replication_key
         self.session_id = self._get_session_id()
         self.datetime_fields = [
             i for i, t in self.schema["properties"].items() if t.get("format", "") == "date-time"
@@ -198,17 +189,6 @@ class IntacctStream(RESTStream):
             logger_name=f"{self.tap_name}.{self.name}",
         )
 
-    def _format_date_for_intacct(self, datetime: datetime) -> str:
-        """Intacct expects datetimes in a 'MM/DD/YY HH:MM:SS' string format.
-
-        Args:
-            datetime: The datetime to be converted.
-
-        Returns:
-            'MM/DD/YY HH:MM:SS' formatted string.
-        """
-        return datetime.strftime("%m/%d/%Y %H:%M:%S")
-
     def prepare_request(
         self,
         context: Context | None,
@@ -244,17 +224,27 @@ class IntacctStream(RESTStream):
             data=request_data,
         )
 
-    def _get_query_filter(
+    def post_process(
         self,
-        rep_key: str,
-        context: Context | None,
-    ) -> dict:
-        return {
-            "greaterthanorequalto": {
-                "field": rep_key,
-                "value": self._format_date_for_intacct(self.get_starting_timestamp(context)),
-            }
-        }
+        row: dict,
+        context: Context | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """As needed, append or transform raw data to match expected structure.
+
+        Args:
+            row: An individual record from the stream.
+            context: The stream context.
+
+        Returns:
+            The updated record dictionary, or ``None`` to skip the record.
+        """
+        for field in self.datetime_fields:
+            if row[field] is not None:
+                row[field] = self._parse_to_datetime(row[field])
+        for field in self.numeric_fields:
+            if row[field] is not None:
+                row[field] = float(row[field])
+        return row
 
     def prepare_request_payload(
         self,
@@ -275,26 +265,7 @@ class IntacctStream(RESTStream):
         if self.name == "audit_history":
             raise Exception("TODO handle audit streams")  # noqa: EM101, TRY002, TRY003
 
-        rep_key = REP_KEYS.get(self.name, GET_BY_DATE_FIELD)
-        orderby = {
-            "order": {
-                "field": rep_key,
-                "ascending": {},
-            }
-        }
-        query_filter = self._get_query_filter(rep_key, context)
-        data = {
-            "query": {
-                "object": self.intacct_obj_name,
-                "select": {"field": list(self.schema["properties"])},
-                "options": {"showprivate": "true"},
-                "filter": query_filter,
-                "pagesize": PAGE_SIZE,
-                "offset": next_page_token,
-                "orderby": orderby,
-            }
-        }
-        key = next(iter(data))
+        data = self.get_request_data(context, next_page_token)
         timestamp = datetime.now(timezone.utc)
         dict_body = {
             "request": {
@@ -308,7 +279,7 @@ class IntacctStream(RESTStream):
                 },
                 "operation": {
                     "authentication": {"sessionid": self.session_id},
-                    "content": {"function": {"@controlid": str(uuid.uuid4()), key: data[key]}},
+                    "content": {"function": {"@controlid": str(uuid.uuid4()), **data}},
                 },
             }
         }
@@ -473,27 +444,79 @@ class IntacctStream(RESTStream):
                 msg = f"Invalid date format: {date_str}"
                 raise ValueError(msg) from err
 
-    def post_process(
+    @abc.abstractmethod
+    def get_request_data(
         self,
-        row: dict,
-        context: Context | None = None,  # noqa: ARG002
-    ) -> dict | None:
-        """As needed, append or transform raw data to match expected structure.
+        context: Context | None,
+        next_page_token: int | None,
+    ) -> dict:
+        """Generate request data for a general Intacct stream."""
+
+
+class IntacctStream(BaseIntacctStream):
+    """Intacct stream class."""
+
+    def __init__(
+        self,
+        *args: t.Any,
+        intacct_obj_name: str | None = None,
+        replication_key: str | None = None,
+        **kwargs: t.Any,
+    ) -> None:
+        """Initialize stream."""
+        super().__init__(*args, **kwargs)
+        self.primary_keys = KEY_PROPERTIES[self.name]
+        self.intacct_obj_name = intacct_obj_name
+        self.replication_key = replication_key
+
+    def _format_date_for_intacct(self, datetime: datetime) -> str:
+        """Intacct expects datetimes in a 'MM/DD/YY HH:MM:SS' string format.
 
         Args:
-            row: An individual record from the stream.
-            context: The stream context.
+            datetime: The datetime to be converted.
 
         Returns:
-            The updated record dictionary, or ``None`` to skip the record.
+            'MM/DD/YY HH:MM:SS' formatted string.
         """
-        for field in self.datetime_fields:
-            if row[field] is not None:
-                row[field] = self._parse_to_datetime(row[field])
-        for field in self.numeric_fields:
-            if row[field] is not None:
-                row[field] = float(row[field])
-        return row
+        return datetime.strftime("%m/%d/%Y %H:%M:%S")
+
+    def _get_query_filter(
+        self,
+        rep_key: str,
+        context: Context | None,
+    ) -> dict:
+        return {
+            "greaterthanorequalto": {
+                "field": rep_key,
+                "value": self._format_date_for_intacct(self.get_starting_timestamp(context)),
+            }
+        }
+
+    def get_request_data(
+        self,
+        context: Context | None,
+        next_page_token: t.Any | None,  # noqa: ANN401
+    ) -> dict:
+        """Generate request data for a general Intacct stream."""
+        rep_key = REP_KEYS.get(self.name, GET_BY_DATE_FIELD)
+        orderby = {
+            "order": {
+                "field": rep_key,
+                "ascending": {},
+            }
+        }
+        query_filter = self._get_query_filter(rep_key, context)
+        return {
+            "query": {
+                "object": self.intacct_obj_name,
+                "select": {"field": list(self.schema["properties"])},
+                "options": {"showprivate": "true"},
+                "filter": query_filter,
+                "pagesize": PAGE_SIZE,
+                "offset": next_page_token,
+                "orderby": orderby,
+            }
+        }
 
 
 class GeneralLedgerDetailsStream(IntacctStream):
@@ -548,3 +571,47 @@ class GeneralLedgerDetailsStream(IntacctStream):
             {"MODULEKEY": "48.PROJACCT", "name": "Project and Resource Management"},
             {"MODULEKEY": "55.CONTRACT", "name": "Contracts and Revenue Management"},
         ]
+
+
+class TrialBalancesStream(BaseIntacctStream):
+    """Trial balances.
+
+    https://developer.intacct.com/api/general-ledger/trial-balances/
+    """
+
+    name = "trial_balances"
+    replication_key = "sss"
+
+    def get_request_data(
+        self,
+        context: Context | None,
+        next_page_token: int | None,  # noqa: ARG002
+    ) -> dict:
+        """Generate request data for trial balances."""
+        start_date = self.get_starting_timestamp(context)
+        end_date = datetime.now(timezone.utc)
+
+        if not start_date:
+            msg = f"A starting timestamp is required for '{self.name}'"
+            raise RuntimeError(msg)
+
+        start_date_obj = {
+            "year": start_date.year,
+            "month": start_date.month,
+            "day": start_date.day,
+        }
+        end_date_obj = {
+            "year": end_date.year,
+            "month": end_date.month,
+            "day": end_date.day,
+        }
+
+        return {
+            "get_trialbalance": {
+                "startdate": start_date_obj,
+                "enddate": end_date_obj,
+                "showzerobalances": True,
+                "showdeptdetail": True,
+                "showlocdetail": True,
+            }
+        }
