@@ -84,7 +84,13 @@ class IntacctOffsetPaginator(BaseOffsetPaginator):  # noqa: D101
 class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
     """Base Intacct stream class."""
 
-    rest_method = "POST"
+    #: API accepts XML payloads
+    http_method = "POST"
+
+    #: Not a JSON API, so we don't send a JSON payload
+    payload_as_json = False
+
+    #: The operation/entity is defined in the payload, not the path
     path = None
 
     def __init__(self, *args: t.Any, intacct_obj_name: str | None = None, **kwargs: t.Any) -> None:
@@ -194,41 +200,6 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
             start_value=0,
             page_size=PAGE_SIZE,
             logger_name=f"{self.tap_name}.{self.name}",
-        )
-
-    def prepare_request(
-        self,
-        context: Context | None,
-        next_page_token: str | None,
-    ) -> requests.PreparedRequest:
-        """Prepare a request object for this stream.
-
-        If partitioning is supported, the `context` object will contain the partition
-        definitions. Pagination information can be parsed from `next_page_token` if
-        `next_page_token` is not None.
-
-        Args:
-            context: Stream partition or context dictionary.
-            next_page_token: Token, page number or any request argument to request the
-                next page of data.
-
-        Returns:
-            Build a request with the stream's URL, path, query parameters,
-            HTTP headers and authenticator.
-        """
-        http_method = self.rest_method
-        url: str = self.get_url(context)
-        params: dict | str = self.get_url_params(context, next_page_token)
-        request_data = self.prepare_request_payload(context, next_page_token)
-        headers = self.http_headers
-
-        return self.build_prepared_request(
-            method=http_method,
-            url=url,
-            params=params,
-            headers=headers,
-            # Note: Had to override this method to switch this to data instead of json
-            data=request_data,
         )
 
     def post_process(
