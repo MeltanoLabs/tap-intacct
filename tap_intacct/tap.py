@@ -101,6 +101,7 @@ class TapIntacct(Tap):
             # discovered_streams.append(audit_stream)
 
         discovered_streams.append(streams.TrialBalancesStream(tap=self))
+        discovered_streams.append(streams.AccountBalancesStream(tap=self))
 
         return discovered_streams
 

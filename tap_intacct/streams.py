@@ -640,3 +640,14 @@ class TrialBalancesStream(_BaseBalancesStream):
     name = "trial_balances"
     intacct_obj_name = "trialbalance"
     function_name = "get_trialbalance"
+
+
+class AccountBalancesStream(_BaseBalancesStream):
+    """Account balances.
+
+    https://developer.intacct.com/api/general-ledger/account-balances/#list-account-balances-legacy
+    """
+
+    name = "account_balances"
+    intacct_obj_name = "accountbalance"
+    function_name = "get_accountbalances"
