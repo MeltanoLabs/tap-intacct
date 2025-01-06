@@ -24,7 +24,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-backports-datetime-fromisoformat = {version = "==2.0.2", python = "<3.11"}
+backports-datetime-fromisoformat = {version = "==2.0.3", python = "<3.11"}
 singer-sdk = { version="~=0.43.1", extras = [] }
 fs-s3fs = { version = "~=1.1.1", optional = true }
 xmltodict = "~=0.14.2"
