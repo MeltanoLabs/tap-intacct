@@ -373,10 +373,7 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
 
         if response.status_code == http.HTTPStatus.BAD_REQUEST:
             if exception_msg.get("errorno") == "GW-0011":  # type: ignore[union-attr]
-                msg = (
-                    "One or more authentication values are incorrect. "
-                    f"Response:{parsed_response}"
-                )
+                msg = f"One or more authentication values are incorrect. Response:{parsed_response}"
                 raise AuthFailure(msg)
             raise InvalidRequest("Invalid request", parsed_response)  # noqa: EM101, TRY003
 
