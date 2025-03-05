@@ -651,7 +651,7 @@ class AccountBalancesStream(_BaseBalancesStream):
 
 
 class BudgetDetailStream(IntacctStream):
-    """Budget Details"""
+    """Budget Details."""
 
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         """Initialize stream."""
