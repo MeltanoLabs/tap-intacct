@@ -663,7 +663,7 @@ class BudgetDetailStream(IntacctStream):
         next_page_token: t.Any | None,  # noqa: ANN401
     ) -> dict:
 
-        orderby = {
+        orderby: dict = {
             "order": {
                 "field": self.replication_key,
                 "ascending": {},
