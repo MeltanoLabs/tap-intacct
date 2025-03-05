@@ -82,6 +82,14 @@ class TapIntacct(Tap):
                     intacct_obj_name=INTACCT_OBJECTS[stream_name],
                     replication_key="WHENMODIFIED",
                 )
+            elif stream_name == "budget_details":
+                stream = streams.BudgetDetailStream(
+                    tap=self,
+                    name=stream_name,
+                    schema=schema,
+                    intacct_obj_name=INTACCT_OBJECTS[stream_name],
+                    replication_key="PENDDATE",
+                )
             else:
                 stream = streams.IntacctStream(
                     tap=self,
