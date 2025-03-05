@@ -63,7 +63,7 @@ INTACCT_OBJECTS: dict[str, str] = {
     "budget_details": "GLBUDGETITEM"
 }
 
-REP_KEYS = {"audit_history": "ACCESSTIME", "budget_details": "PENDDATE"}
+REP_KEYS = {"audit_history": "ACCESSTIME"}
 
 IGNORE_FIELDS = ["PASSWORD"]
 

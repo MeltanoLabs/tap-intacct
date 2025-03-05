@@ -656,7 +656,6 @@ class BudgetDetailStream(IntacctStream):
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         """Initialize stream."""
         super().__init__(*args, **kwargs)
-        self.replication_key = super().replication_key
 
     def get_request_data(
         self,
