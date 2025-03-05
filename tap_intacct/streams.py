@@ -659,7 +659,7 @@ class BudgetDetailStream(IntacctStream):
 
     def get_request_data(  # noqa: D102
         self,
-        context: Context | None,
+        context: Context | None,  # noqa: ARG002
         next_page_token: t.Any | None,  # noqa: ANN401
     ) -> dict:
 
