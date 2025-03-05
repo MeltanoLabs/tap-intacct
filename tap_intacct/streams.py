@@ -657,7 +657,7 @@ class BudgetDetailStream(IntacctStream):
         """Initialize stream."""
         super().__init__(*args, **kwargs)
 
-    def get_request_data(
+    def get_request_data(  # noqa: D102
         self,
         context: Context | None,
         next_page_token: t.Any | None,  # noqa: ANN401
