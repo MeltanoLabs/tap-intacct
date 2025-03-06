@@ -648,3 +648,33 @@ class AccountBalancesStream(_BaseBalancesStream):
     name = "account_balances"
     intacct_obj_name = "accountbalance"
     function_name = "get_accountbalances"
+
+
+class BudgetDetailStream(IntacctStream):
+    """Budget Details."""
+
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+        """Initialize stream."""
+        super().__init__(*args, **kwargs)
+
+    def get_request_data(  # noqa: D102
+        self,
+        context: Context | None,  # noqa: ARG002
+        next_page_token: t.Any | None,  # noqa: ANN401
+    ) -> dict:
+        orderby: dict = {
+            "order": {
+                "field": self.replication_key,
+                "ascending": {},
+            }
+        }
+
+        return {
+            "query": {
+                "object": self.intacct_obj_name,
+                "select": {"field": list(self.schema["properties"])},
+                "pagesize": PAGE_SIZE,
+                "offset": next_page_token,
+                "orderby": orderby,
+            }
+        }

@@ -31,6 +31,7 @@ KEY_PROPERTIES = {
     "departments": ["DEPARTMENTID"],
     "audit_history": ["ID"],
     "locations": ["RECORDNO"],
+    "budget_details": ["RECORDNO"],
 }
 
 # List of available objects with their internal object-reference/endpoint name.
@@ -59,6 +60,7 @@ INTACCT_OBJECTS: dict[str, str] = {
     "departments": "DEPARTMENT",
     # "audit_history": "AUDITHISTORY",
     "locations": "LOCATION",
+    "budget_details": "GLBUDGETITEM",
 }
 
 REP_KEYS = {"audit_history": "ACCESSTIME"}
