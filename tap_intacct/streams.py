@@ -662,7 +662,6 @@ class BudgetDetailStream(IntacctStream):
         context: Context | None,  # noqa: ARG002
         next_page_token: t.Any | None,  # noqa: ANN401
     ) -> dict:
-
         orderby: dict = {
             "order": {
                 "field": self.replication_key,
