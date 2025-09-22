@@ -1416,15 +1416,18 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "xmltodict"
-version = "0.15.0"
+version = "1.0.2"
 description = "Makes working with XML feel like you are working with JSON"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "xmltodict-0.15.0-py2.py3-none-any.whl", hash = "sha256:8887783bf1faba1754fc45fdf3fe03fbb3629c811ae57f91c018aace4c58d4ed"},
-    {file = "xmltodict-0.15.0.tar.gz", hash = "sha256:c6d46b4e3413d1e4fc3e5016f0f1c7a5c10f8ce39efaa0cb099af986ecfc9a53"},
+    {file = "xmltodict-1.0.2-py3-none-any.whl", hash = "sha256:62d0fddb0dcbc9f642745d8bbf4d81fd17d6dfaec5a15b5c1876300aad92af0d"},
+    {file = "xmltodict-1.0.2.tar.gz", hash = "sha256:54306780b7c2175a3967cad1db92f218207e5bc1aba697d887807c0fb68b7649"},
 ]
+
+[package.extras]
+test = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "zipp"
@@ -1453,4 +1456,4 @@ s3 = ["fs-s3fs"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "a6ae79a003e4907bcec0dc9b411b195492b9ebd88874457f5c59fd1660005e87"
+content-hash = "942430c00d9934e5457dc9959edbcde13ea516288d90c93fbcf4ade3100f0981"
