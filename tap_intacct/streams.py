@@ -289,9 +289,9 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
                 message = message.replace(support_id.group(1), decoded_support_id)
 
         if data_type == "list":
-            errormessages["error"][0]["description2"] = message if message else None
+            errormessages["error"][0]["description2"] = message or None
         elif data_type == "dict":
-            errormessages["error"]["description2"] = message if message else None
+            errormessages["error"]["description2"] = message or None
 
         return errormessages
 
