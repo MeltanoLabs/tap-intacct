@@ -76,8 +76,8 @@ Follow these instructions to contribute to this project.
 ### Initialize your Development Environment
 
 ```bash
-pipx install poetry
-poetry install
+curl -LsSf https://astral.sh/uv/install.sh | sh  # https://docs.astral.sh/uv/getting-started/installation/
+uv sync
 ```
 
 ### Create and Run Tests
@@ -86,13 +86,13 @@ Create tests within the `tests` subfolder and
   then run:
 
 ```bash
-poetry run pytest
+uv run pytest
 ```
 
-You can also test the `tap-intacct` CLI interface directly using `poetry run`:
+You can also test the `tap-intacct` CLI interface directly using `uv run`:
 
 ```bash
-poetry run tap-intacct --help
+uv run tap-intacct --help
 ```
 
 ### Testing with [Meltano](https://www.meltano.com)
@@ -110,7 +110,7 @@ Next, install Meltano (if you haven't already) and any needed plugins:
 
 ```bash
 # Install meltano
-pipx install meltano
+uv tool install meltano
 # Initialize meltano within this directory
 cd tap-intacct
 meltano install

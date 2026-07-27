@@ -1,9 +1,11 @@
-[tool.poetry]
+[project]
 name = "meltanolabs-tap-intacct"
-version = "0.0.1"
+dynamic = ["version"]
 description = "Singer tap for Intacct, built with the Meltano Singer SDK."
+authors = [{ name = "Pat Nadolny", email = "pat@arch.dev" }]
+requires-python = ">=3.10"
 readme = "README.md"
-authors = ["Pat Nadolny <pat@arch.dev>"]
+license = "Apache-2.0"
 keywords = [
     "ELT",
     "Intacct",
@@ -11,47 +13,61 @@ keywords = [
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
-license = "Apache-2.0"
-packages = [
-    { include = "tap_intacct" },
+dependencies = [
+    "backports-datetime-fromisoformat==2.0.3 ; python_full_version < '3.11'",
+    "singer-sdk~=0.54.5",
+    "typing-extensions>=4.16.0 ; python_full_version < '3.12'",
+    "xmltodict~=1.0.4",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9"
-backports-datetime-fromisoformat = {version = "==2.0.3", python = "<3.11"}
-singer-sdk = { version="~=0.47.4", extras = [] }
-fs-s3fs = { version = "~=1.1.1", optional = true }
-xmltodict = "~=1.0.4"
+[project.scripts]
+tap-intacct = "tap_intacct.tap:TapIntacct.cli"
 
-[tool.poetry.group.dev.dependencies]
-pytest = ">=8"
-singer-sdk = { version="~=0.47.4", extras = ["testing"] }
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "singer-sdk[testing]",
+]
 
-[tool.poetry.extras]
-s3 = ["fs-s3fs"]
+[tool.uv]
+default-groups = "all"
+
+[tool.hatch.build.targets.sdist]
+include = ["tap_intacct"]
+
+[tool.hatch.build.targets.wheel]
+include = ["tap_intacct"]
+
+[tool.hatch.version]
+fallback-version = "0.0.0.dev0"
+source = "vcs"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 addopts = '--durations=10'
 
 [tool.mypy]
-python_version = "3.12"
 warn_unused_configs = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+preview = true
 
 [tool.ruff.lint]
 ignore = [
-    "COM812",  # missing-trailing-comma
-    "ISC001",  # single-line-implicit-string-concatenation
-    "ERA001",  # commented-out-code
+    "missing-copyright-notice",
+    "missing-trailing-comma",
+    "single-line-implicit-string-concatenation",
+    "commented-out-code",
 ]
 select = ["ALL"]
 
@@ -60,11 +76,3 @@ allow-star-arg-any = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
-# CLI declaration
-tap-intacct = 'tap_intacct.tap:TapIntacct.cli'

@@ -1,4 +1,4 @@
-REQUIRED_CONFIG_KEYS = [  # noqa: D100
+REQUIRED_CONFIG_KEYS = [  # ruff: ignore[undocumented-public-module]
     "company_id",
     "sender_id",
     "sender_password",

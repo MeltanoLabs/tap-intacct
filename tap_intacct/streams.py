@@ -16,10 +16,7 @@ from urllib.parse import unquote
 import requests
 import xmltodict
 from singer_sdk import typing as th  # JSON schema typing helpers
-from singer_sdk.pagination import (
-    BaseAPIPaginator,
-    BaseOffsetPaginator,
-)
+from singer_sdk.pagination import BaseAPIPaginator, OffsetPaginator
 from singer_sdk.streams import RESTStream
 
 from tap_intacct.const import GET_BY_DATE_FIELD, KEY_PROPERTIES, REP_KEYS
@@ -41,9 +38,15 @@ from tap_intacct.exceptions import (
 )
 
 if sys.version_info < (3, 11):
-    from backports.datetime_fromisoformat import MonkeyPatch
+    from backports.datetime_fromisoformat import MonkeyPatch  # ty: ignore[unresolved-import]
 
     MonkeyPatch.patch_fromisoformat()
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
@@ -51,8 +54,8 @@ if t.TYPE_CHECKING:
 PAGE_SIZE = 1000
 
 
-class IntacctOffsetPaginator(BaseOffsetPaginator):  # noqa: D101
-    def __init__(  # noqa: ANN204, D107
+class IntacctOffsetPaginator(OffsetPaginator):  # ruff: ignore[undocumented-public-class]
+    def __init__(  # ruff: ignore[missing-return-type-special-method, undocumented-public-init]
         self,
         *args: t.Any,
         logger_name: str | None = None,
@@ -61,6 +64,7 @@ class IntacctOffsetPaginator(BaseOffsetPaginator):  # noqa: D101
         self.logger = logging.getLogger(logger_name or __name__)
         super().__init__(*args, **kwargs)
 
+    @override
     def has_more(self, response: requests.Response) -> bool:
         """Override this method to check if the endpoint has any pages left.
 
@@ -81,7 +85,7 @@ class IntacctOffsetPaginator(BaseOffsetPaginator):  # noqa: D101
         return int(remaining) > 0
 
 
-class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
+class BaseIntacctStream(RESTStream[int], abc.ABC):
     """Base Intacct stream class."""
 
     #: API accepts XML payloads
@@ -105,6 +109,7 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
         ]
 
     @property
+    @override
     def is_sorted(self) -> bool:
         """Expect stream to be sorted.
 
@@ -164,24 +169,23 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
         raise SageIntacctSDKError(msg)
 
     @property
+    @override
     def url_base(self) -> str:
-        """Return the API URL root, configurable via tap settings."""
+        """The API URL root, configurable via tap settings."""
         return self.config["api_url"]
 
     @property
+    @override
     def http_headers(self) -> dict:
-        """Return the http headers needed.
-
-        Returns:
-            A dictionary of HTTP headers.
-        """
-        headers = {"content-type": "application/xml"}
+        """The HTTP headers."""
+        headers: dict = {"content-type": "application/xml"}
         if "user_agent" in self.config:
             headers["User-Agent"] = self.config.get("user_agent")
         # If not using an authenticator, you may also provide inline auth headers:
         # headers["Private-Token"] = self.config.get("auth_token")
         return headers
 
+    @override
     def get_new_paginator(self) -> BaseAPIPaginator:
         """Create a new pagination helper instance.
 
@@ -201,10 +205,11 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
             logger_name=f"{self.tap_name}.{self.name}",
         )
 
+    @override
     def post_process(
         self,
         row: dict,
-        context: Context | None = None,  # noqa: ARG002
+        context: Context | None = None,
     ) -> dict | None:
         """As needed, append or transform raw data to match expected structure.
 
@@ -223,10 +228,11 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
                 row[field] = float(row[field])
         return row
 
+    @override
     def prepare_request_payload(
         self,
         context: Context | None,
-        next_page_token: t.Any | None,  # noqa: ANN401
+        next_page_token: t.Any | None,
     ) -> dict | None:
         """Prepare the data payload for the REST API request.
 
@@ -238,9 +244,12 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
 
         Returns:
             A dictionary with the JSON body for a POST requests.
+
+        Raises:
+            Exception: If the request payload cannot be prepared.
         """
         if self.name == "audit_history":
-            raise Exception("TODO handle audit streams")  # noqa: EM101, TRY002, TRY003
+            raise Exception("TODO handle audit streams")  # ruff: ignore[raw-string-in-exception, raise-vanilla-class, raise-vanilla-args]
 
         data = self.get_request_data(context, next_page_token)
         timestamp = datetime.now(timezone.utc)
@@ -264,7 +273,11 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
 
     @staticmethod
     def support_id_msg(errormessages: dict) -> dict:
-        """Get the support ID message from the error message."""
+        """Get the support ID message from the error message.
+
+        Returns:
+            The support ID message as a dictionary.
+        """
         error = {}
         if isinstance(errormessages["error"], list):
             error["error"] = errormessages["error"][0]
@@ -277,13 +290,17 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
 
     @staticmethod
     def decode_support_id(errormessages: dict) -> list | dict:
-        """Decode the support ID from the error message."""
+        """Decode the support ID from the error message.
+
+        Returns:
+            The decoded support ID message as a list or dict.
+        """
         support_id_msg = IntacctStream.support_id_msg(errormessages)
         data_type = support_id_msg["type"]
         error = support_id_msg["error"]
         if error and error["description2"]:
             message = error["description2"]
-            support_id = re.search("Support ID: (.*)]", message)
+            support_id = re.search(r"Support ID: (.*)]", message)
             if support_id and support_id.group(1):
                 decoded_support_id = unquote(support_id.group(1))
                 message = message.replace(support_id.group(1), decoded_support_id)
@@ -295,15 +312,16 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
 
         return errormessages
 
-    def parse_response(self, response: requests.Response) -> t.Iterable[dict]:  # noqa: C901, PLR0912, PLR0915
+    @override
+    def parse_response(self, response: requests.Response) -> t.Iterable[dict]:  # ruff: ignore[complex-structure, too-many-branches, too-many-statements]
         """Parse the response and return an iterator of result records.
 
         Args:
             response: The HTTP ``requests.Response`` object.
 
-        Yields:
-            Each record from the source.
-        """
+        Returns:
+            An iterator of result records.
+        """  # ruff: ignore[docstring-missing-exception]
         try:
             parsed_xml = xmltodict.parse(response.text)
             parsed_response = json.loads(json.dumps(parsed_xml))
@@ -329,14 +347,14 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
 
             if parsed_response["response"]["control"]["status"] == "failure":
                 exception_msg = self.decode_support_id(parsed_response["response"]["errormessage"])
-                raise WrongParamsError(  # noqa: TRY003
-                    "Some of the parameters are wrong",  # noqa: EM101
+                raise WrongParamsError(  # ruff: ignore[raise-vanilla-args]
+                    "Some of the parameters are wrong",  # ruff: ignore[raw-string-in-exception]
                     exception_msg,
                 )
 
             if api_response["authentication"]["status"] == "failure":
-                raise InvalidTokenError(  # noqa: TRY003
-                    "Invalid token / Incorrect credentials",  # noqa: EM101
+                raise InvalidTokenError(  # ruff: ignore[raise-vanilla-args]
+                    "Invalid token / Incorrect credentials",  # ruff: ignore[raw-string-in-exception]
                     api_response["errormessage"],
                 )
 
@@ -349,7 +367,7 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
 
             self.logger.error("Intacct error response: %s", api_response)
             error = api_response.get("result", {}).get("errormessage", {}).get("error", {})
-            desc_2 = (  # noqa: F841
+            desc_2 = (  # ruff: ignore[unused-variable]
                 error.get("description2")
                 if isinstance(error, dict)
                 else error[0].get("description2")
@@ -375,7 +393,7 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
             if exception_msg.get("errorno") == "GW-0011":  # type: ignore[union-attr]
                 msg = f"One or more authentication values are incorrect. Response:{parsed_response}"
                 raise AuthFailure(msg)
-            raise InvalidRequest("Invalid request", parsed_response)  # noqa: EM101, TRY003
+            raise InvalidRequest("Invalid request", parsed_response)  # ruff: ignore[raw-string-in-exception, raise-vanilla-args]
 
         if response.status_code == http.HTTPStatus.UNAUTHORIZED:
             msg = f"Invalid token / Incorrect credentials. Response: {parsed_response}"
@@ -389,7 +407,7 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
             msg = f"Not found item with ID. Response: {parsed_response}"
             raise NotFoundItemError(msg)
 
-        if response.status_code == 498:  # noqa: PLR2004
+        if response.status_code == 498:  # ruff: ignore[magic-value-comparison]
             msg = f"Expired token, try to refresh it. Response: {parsed_response}"
             raise ExpiredTokenError(msg)
 
@@ -403,7 +421,7 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
         msg = f"Error: {parsed_response}"
         raise SageIntacctSDKError(msg)
 
-    def _parse_to_datetime(self, date_str: str) -> datetime:
+    def _parse_to_datetime(self, date_str: str) -> datetime:  # ruff: ignore[no-self-use]
         # Try to parse with the full format first
         try:
             return datetime.strptime(date_str, "%m/%d/%Y %H:%M:%S").replace(tzinfo=timezone.utc)
@@ -429,7 +447,7 @@ class BaseIntacctStream(RESTStream[int], metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def intacct_obj_name(self) -> str:
-        """Return the Intacct object name."""
+        """The Intacct object name."""
 
 
 class IntacctStream(BaseIntacctStream):
@@ -453,7 +471,7 @@ class IntacctStream(BaseIntacctStream):
         """The Intacct object name."""
         return self._intacct_obj_name
 
-    def _format_date_for_intacct(self, datetime: datetime) -> str:
+    def _format_date_for_intacct(self, datetime: datetime) -> str:  # ruff: ignore[no-self-use]
         """Intacct expects datetimes in a 'MM/DD/YY HH:MM:SS' string format.
 
         Args:
@@ -472,16 +490,21 @@ class IntacctStream(BaseIntacctStream):
         return {
             "greaterthanorequalto": {
                 "field": rep_key,
-                "value": self._format_date_for_intacct(self.get_starting_timestamp(context)),
+                "value": self._format_date_for_intacct(self.get_starting_timestamp(context)),  # ty: ignore[invalid-argument-type]
             }
         }
 
+    @override
     def get_request_data(
         self,
         context: Context | None,
-        next_page_token: t.Any | None,  # noqa: ANN401
+        next_page_token: t.Any | None,
     ) -> dict:
-        """Generate request data for a general Intacct stream."""
+        """Generate request data for a general Intacct stream.
+
+        Returns:
+            The request data as a dictionary.
+        """
         rep_key = REP_KEYS.get(self.name, GET_BY_DATE_FIELD)
         orderby = {
             "order": {
@@ -526,23 +549,15 @@ class GeneralLedgerDetailsStream(IntacctStream):
                 **super()._get_query_filter(rep_key, context),
                 "equalto": {
                     "field": "MODULEKEY",
-                    "value": context["MODULEKEY"],  # type: ignore[index]
+                    "value": context["MODULEKEY"],  # type: ignore[index]  # ty: ignore[not-subscriptable]
                 },
             }
         }
 
     @property
+    @override
     def partitions(self) -> list[dict] | None:
-        """Get stream partitions.
-
-        Developers may override this property to provide a default partitions list.
-
-        By default, this method returns a list of any partitions which are already
-        defined in state, otherwise None.
-
-        Returns:
-            A list of partition key dicts (if applicable), otherwise `None`.
-        """
+        """The stream partitions."""
         return [
             {"MODULEKEY": "2.GL", "name": "General Ledger"},
             {"MODULEKEY": "3.AP", "name": "Accounts Payable"},
@@ -557,15 +572,20 @@ class GeneralLedgerDetailsStream(IntacctStream):
         ]
 
 
-class _LegacyFunctionStream(BaseIntacctStream, metaclass=abc.ABCMeta):
+class _LegacyFunctionStream(BaseIntacctStream, abc.ABC):
     """Base Intacct stream class for legacy functions."""
 
+    @override
     def get_request_data(
         self,
         context: Context | None,
         next_page_token: int | None,
     ) -> dict:
-        """Generate request data for a "legacy" Intacct stream."""
+        """Generate request data for a "legacy" Intacct stream.
+
+        Returns:
+            The request data as a dictionary.
+        """
         return {
             self.function_name: self.get_function_arguments(context, next_page_token),
         }
@@ -573,7 +593,7 @@ class _LegacyFunctionStream(BaseIntacctStream, metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def function_name(self) -> str:
-        """Return the function name."""
+        """The function name."""
 
     @abc.abstractmethod
     def get_function_arguments(self, context: Context | None, next_page_token: int | None) -> dict:
@@ -597,12 +617,20 @@ class _BaseBalancesStream(_LegacyFunctionStream):
         th.Property("currency", th.StringType),
     ).to_dict()
 
+    @override
     def get_function_arguments(
         self,
-        context: Context | None,  # noqa: ARG002
-        next_page_token: int | None,  # noqa: ARG002
+        context: Context | None,
+        next_page_token: int | None,
     ) -> dict:
-        """Generate request data for trial balances."""
+        """Generate request data for trial balances.
+
+        Returns:
+            The request data for trial balances.
+
+        Raises:
+            RuntimeError: If no starting timestamp is provided.
+        """
         raw_start_date: str | None = self.config.get("start_date")
         end_date = datetime.now(timezone.utc)
 
@@ -657,10 +685,11 @@ class BudgetDetailStream(IntacctStream):
         """Initialize stream."""
         super().__init__(*args, **kwargs)
 
-    def get_request_data(  # noqa: D102
+    @override
+    def get_request_data(
         self,
-        context: Context | None,  # noqa: ARG002
-        next_page_token: t.Any | None,  # noqa: ANN401
+        context: Context | None,
+        next_page_token: t.Any | None,
     ) -> dict:
         orderby: dict = {
             "order": {
