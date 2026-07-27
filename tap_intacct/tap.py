@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
 
 from tap_intacct import streams
 from tap_intacct.const import INTACCT_OBJECTS
 from tap_intacct.sage import get_client
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class TapIntacct(Tap):
@@ -56,7 +61,7 @@ class TapIntacct(Tap):
         ),
     ).to_dict()
 
-    def discover_streams(self) -> list[streams.IntacctStream]:
+    def discover_streams(self) -> Sequence[streams.BaseIntacctStream]:
         """Return a list of discovered streams.
 
         Returns:
@@ -108,8 +113,10 @@ class TapIntacct(Tap):
             # )
             # discovered_streams.append(audit_stream)
 
-        discovered_streams.append(streams.TrialBalancesStream(tap=self))
-        discovered_streams.append(streams.AccountBalancesStream(tap=self))
+        discovered_streams.extend((
+            streams.TrialBalancesStream(tap=self),
+            streams.AccountBalancesStream(tap=self),
+        ))
 
         return discovered_streams
 

@@ -1,0 +1,17 @@
+requires = [
+    "tox>=4.58",
+    "tox-uv>=1.36",
+]
+env_list = [
+    "typing",
+    { prefix = "3.", start = 10 },
+]
+
+[env_run_base]
+description = "run tests on Python {py_dot_ver}"
+dependency_groups = [
+    "dev",
+]
+commands = [
+    [ "pytest", { replace = "posargs", default = [ "tests" ], extend = true } ],
+]

@@ -1,4 +1,4 @@
-version: 1
+requires_meltano: ">=4.0"
 send_anonymous_usage_stats: true
 project_id: "tap-intacct"
 default_environment: test

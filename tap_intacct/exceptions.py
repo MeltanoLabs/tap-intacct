@@ -9,12 +9,12 @@ class SageIntacctSDKError(Exception):
         response: Error response from the API call.
     """
 
-    def __init__(self, msg, response=None):  # noqa: ANN001, ANN204, D107
-        super(SageIntacctSDKError, self).__init__(msg)  # noqa: UP008
+    def __init__(self, msg, response=None):  # ruff: ignore[missing-type-function-argument, missing-return-type-special-method, undocumented-public-init]
+        super(SageIntacctSDKError, self).__init__(msg)  # ruff: ignore[super-call-with-parameters]
         self.message = msg
         self.response = response
 
-    def __str__(self):  # noqa: ANN204, D105
+    def __str__(self):  # ruff: ignore[missing-return-type-special-method, undocumented-magic-method]
         return repr(self.message)
 
 
@@ -42,29 +42,29 @@ class InternalServerError(SageIntacctSDKError):
     """The rest SageIntacctSDK errors, 500 error."""
 
 
-class InvalidRequest(SageIntacctSDKError):  # noqa: N818
+class InvalidRequest(SageIntacctSDKError):  # ruff: ignore[error-suffix-on-exception-name]
     """The rest SageIntacctSDK errors, 500 error."""
 
 
-class AuthFailure(SageIntacctSDKError):  # noqa: N818
+class AuthFailure(SageIntacctSDKError):  # ruff: ignore[error-suffix-on-exception-name]
     """The rest SageIntacctSDK errors, 500 error."""
 
 
-class InvalidXmlResponse(Exception):  # noqa: N818, D101
+class InvalidXmlResponse(Exception):  # ruff: ignore[error-suffix-on-exception-name, undocumented-public-class]
     pass
 
 
-class BadGatewayError(Exception):  # noqa: D101
+class BadGatewayError(Exception):  # ruff: ignore[undocumented-public-class]
     pass
 
 
-class OfflineServiceError(Exception):  # noqa: D101
+class OfflineServiceError(Exception):  # ruff: ignore[undocumented-public-class]
     pass
 
 
-class RateLimitError(Exception):  # noqa: D101
+class RateLimitError(Exception):  # ruff: ignore[undocumented-public-class]
     pass
 
 
-class PleaseTryAgainLaterError(Exception):  # noqa: D101
+class PleaseTryAgainLaterError(Exception):  # ruff: ignore[undocumented-public-class]
     pass
